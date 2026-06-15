@@ -1,25 +1,27 @@
 // public/firebase-config.js
+// Central Firebase configuration module — all other JS files import from here.
+// Uses Firebase v10 CDN (modular ES6) as required by the project spec.
 
-// Import the specific Firebase SDK modules we need from the CDN
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // Your web app's Firebase configuration
-// TODO: Replace these placeholders with your actual keys from Project Settings
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyBOyN9Sohv_2SEiHVb9OEpS9alVaTHwB4c",
+    authDomain: "calorie-tracker-9a1d2.firebaseapp.com",
+    projectId: "calorie-tracker-9a1d2",
+    storageBucket: "calorie-tracker-9a1d2.firebasestorage.app",
+    messagingSenderId: "466150517882",
+    appId: "1:466150517882:web:7f9068cb59b7e9f99e5fc3",
+    measurementId: "G-N7SHG7GZ7Y"
 };
 
 // Initialize the Firebase instances
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
 // Export the instances so our other JS modules can use them
-export { auth, db };
+export { app, auth, db, googleProvider };

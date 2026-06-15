@@ -4,3 +4,6 @@ firestore-debug.log
 ui-debug.log
 .DS_Store
 node_modules/
+
+# Local Prompts and Specifications
+calorie-tracker.md
