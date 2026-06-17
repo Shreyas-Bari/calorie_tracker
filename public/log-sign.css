@@ -305,6 +305,7 @@ body::after {
   outline: none;
   transition: border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), background 0.25s;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .input-group input::placeholder {
