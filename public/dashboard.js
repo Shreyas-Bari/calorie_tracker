@@ -1,623 +1,293 @@
 // public/dashboard.js
-// Dashboard page logic — auth guard, Firestore data loading, UI hydration,
-// calorie ring animation, macro bars, water tracker, and sidebar interactions.
+// Dashboard page logic — auth guard, Firestore data loading (daily_logs path),
+// calorie ring, macro bars, water tracker, meals list. Emoji-free SVG icons.
 
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  limit,
-  serverTimestamp,
-  Timestamp,
+  doc, getDoc, setDoc, collection, getDocs, orderBy, limit, query,
+  serverTimestamp, where,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ──────────────────────────────────────────────
-// DOM References
-// ──────────────────────────────────────────────
-const appLoading        = document.getElementById("app-loading");
-const toastContainer    = document.getElementById("toast-container");
+// ── SVG Icon library (meal types) ──
+const MEAL_ICONS = {
+  breakfast: '<svg viewBox="0 0 24 24"><path d="M12 2v4"/><path d="M6.34 6.34l2.83 2.83"/><path d="M2 12h4"/><circle cx="12" cy="17" r="5"/><line x1="12" y1="22" x2="12" y2="22"/></svg>',
+  lunch:     '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+  dinner:    '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>',
+  snacks:    '<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
+};
 
-// Header
-const greetingEmoji     = document.getElementById("greeting-emoji");
-const greetingText      = document.getElementById("greeting-text");
-const userFirstName     = document.getElementById("user-first-name");
-const streakCount       = document.getElementById("streak-count");
-const currentDate       = document.getElementById("current-date");
+// ── DOM ──
+const appLoading       = document.getElementById("app-loading");
+const toastContainer   = document.getElementById("toast-container");
+const greetingText     = document.getElementById("greeting-text");
+const userFirstName    = document.getElementById("user-first-name");
+const streakCount      = document.getElementById("streak-count");
+const currentDate      = document.getElementById("current-date");
+const sidebar          = document.getElementById("sidebar");
+const hamburger        = document.getElementById("hamburger");
+const sidebarOverlay   = document.getElementById("sidebar-overlay");
+const userAvatar       = document.getElementById("user-avatar");
+const userDisplayName  = document.getElementById("user-display-name");
+const userEmail        = document.getElementById("user-email");
+const btnSignout       = document.getElementById("btn-signout");
+const calRing          = document.getElementById("cal-ring");
+const calConsumed      = document.getElementById("cal-consumed");
+const calTargetDisplay = document.getElementById("cal-target-display");
+const statConsumed     = document.getElementById("stat-consumed");
+const statRemaining    = document.getElementById("stat-remaining");
+const statBurned       = document.getElementById("stat-burned");
+const proteinConsumed  = document.getElementById("protein-consumed");
+const proteinTarget    = document.getElementById("protein-target");
+const proteinBar       = document.getElementById("protein-bar");
+const carbsConsumed    = document.getElementById("carbs-consumed");
+const carbsTarget      = document.getElementById("carbs-target");
+const carbsBar         = document.getElementById("carbs-bar");
+const fatConsumed      = document.getElementById("fat-consumed");
+const fatTarget        = document.getElementById("fat-target");
+const fatBar           = document.getElementById("fat-bar");
+const fiberConsumed    = document.getElementById("fiber-consumed");
+const fiberTarget      = document.getElementById("fiber-target");
+const fiberBar         = document.getElementById("fiber-bar");
+const waterAmount      = document.getElementById("water-amount");
+const waterBadge       = document.getElementById("water-badge");
+const waterTracker     = document.getElementById("water-tracker");
+const weightValue      = document.getElementById("weight-value");
+const weightTrend      = document.getElementById("weight-trend");
+const weightTrendText  = document.getElementById("weight-trend-text");
+const mealList         = document.getElementById("meal-list");
+const mealEmpty        = document.getElementById("meal-empty");
 
-// Sidebar
-const sidebar           = document.getElementById("sidebar");
-const hamburger         = document.getElementById("hamburger");
-const sidebarOverlay    = document.getElementById("sidebar-overlay");
-const userAvatar        = document.getElementById("user-avatar");
-const userDisplayName   = document.getElementById("user-display-name");
-const userEmail         = document.getElementById("user-email");
-const btnSignout        = document.getElementById("btn-signout");
-
-// Calorie ring
-const calRing           = document.getElementById("cal-ring");
-const calConsumed       = document.getElementById("cal-consumed");
-const calTargetDisplay  = document.getElementById("cal-target-display");
-const statConsumed      = document.getElementById("stat-consumed");
-const statRemaining     = document.getElementById("stat-remaining");
-const statBurned        = document.getElementById("stat-burned");
-
-// Macro cards
-const proteinConsumed   = document.getElementById("protein-consumed");
-const proteinTarget     = document.getElementById("protein-target");
-const proteinBar        = document.getElementById("protein-bar");
-const carbsConsumed     = document.getElementById("carbs-consumed");
-const carbsTarget       = document.getElementById("carbs-target");
-const carbsBar          = document.getElementById("carbs-bar");
-const fatConsumed       = document.getElementById("fat-consumed");
-const fatTarget         = document.getElementById("fat-target");
-const fatBar            = document.getElementById("fat-bar");
-const fiberConsumed     = document.getElementById("fiber-consumed");
-const fiberTarget       = document.getElementById("fiber-target");
-const fiberBar          = document.getElementById("fiber-bar");
-
-// Summary cards
-const mealsCount        = document.getElementById("meals-count");
-const mealsBadge        = document.getElementById("meals-badge");
-const waterAmount       = document.getElementById("water-amount");
-const waterBadge        = document.getElementById("water-badge");
-const waterTracker      = document.getElementById("water-tracker");
-const weightValue       = document.getElementById("weight-value");
-const weightTrend       = document.getElementById("weight-trend");
-const weightTrendText   = document.getElementById("weight-trend-text");
-const scoreValue        = document.getElementById("score-value");
-const scoreRing         = document.getElementById("score-ring");
-const scoreBadge        = document.getElementById("score-badge");
-const scoreInsights     = document.getElementById("score-insights");
-
-// Meal list
-const mealList          = document.getElementById("meal-list");
-const mealEmpty         = document.getElementById("meal-empty");
-
-// ──────────────────────────────────────────────
-// Toast System
-// ──────────────────────────────────────────────
+// ── Toast ──
 function showToast(type, message, duration = 4000) {
   const icons = { success: "✓", error: "✕", info: "ℹ" };
-  const toast = document.createElement("div");
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${message}</span>`;
-  toastContainer.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add("removing");
-    toast.addEventListener("animationend", () => toast.remove());
-  }, duration);
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${message}</span>`;
+  toastContainer.appendChild(t);
+  setTimeout(() => { t.classList.add("removing"); t.addEventListener("animationend", () => t.remove()); }, duration);
 }
 
-// ──────────────────────────────────────────────
-// Utility: Date Helpers
-// ──────────────────────────────────────────────
+// ── Date Helpers ──
 function getTodayDateString() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
 }
-
 function formatDisplayDate() {
-  const now = new Date();
-  return now.toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
-
 function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return { text: "Good morning", emoji: "☀️" };
-  if (hour < 17) return { text: "Good afternoon", emoji: "🌤️" };
-  if (hour < 21) return { text: "Good evening", emoji: "🌅" };
-  return { text: "Good night", emoji: "🌙" };
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  if (h < 21) return "Good evening";
+  return "Good night";
 }
 
-// ──────────────────────────────────────────────
-// Utility: Animate counting
-// ──────────────────────────────────────────────
-function animateCount(element, target, duration = 800) {
-  const start = parseInt(element.textContent) || 0;
+// ── Animate count ──
+function animateCount(el, target, dur = 800) {
+  const start = parseInt(el.textContent) || 0;
   const diff = target - start;
   if (diff === 0) return;
-
-  const startTime = performance.now();
-
-  function tick(currentTime) {
-    const elapsed = currentTime - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    // Ease out quad
-    const eased = 1 - (1 - progress) * (1 - progress);
-    element.textContent = Math.round(start + diff * eased);
-    if (progress < 1) {
-      requestAnimationFrame(tick);
-    }
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const e = 1 - (1 - p) * (1 - p);
+    el.textContent = Math.round(start + diff * e);
+    if (p < 1) requestAnimationFrame(tick);
   }
-
   requestAnimationFrame(tick);
 }
 
-// ──────────────────────────────────────────────
-// Sidebar Toggle (Mobile)
-// ──────────────────────────────────────────────
-hamburger.addEventListener("click", () => {
-  sidebar.classList.toggle("open");
-  sidebarOverlay.classList.toggle("active");
-});
+// ── Sidebar toggle ──
+hamburger.addEventListener("click", () => { sidebar.classList.toggle("open"); sidebarOverlay.classList.toggle("active"); });
+sidebarOverlay.addEventListener("click", () => { sidebar.classList.remove("open"); sidebarOverlay.classList.remove("active"); });
 
-sidebarOverlay.addEventListener("click", () => {
-  sidebar.classList.remove("open");
-  sidebarOverlay.classList.remove("active");
-});
-
-// ──────────────────────────────────────────────
-// Sign Out
-// ──────────────────────────────────────────────
+// ── Sign Out ──
 btnSignout.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-    window.location.href = "./login.html";
-  } catch (error) {
-    console.error("Sign-out error:", error);
-    showToast("error", "Failed to sign out. Please try again.");
-  }
+  try { await signOut(auth); window.location.href = "./login.html"; }
+  catch (e) { console.error("Sign-out error:", e); showToast("error", "Failed to sign out."); }
 });
 
-// ──────────────────────────────────────────────
-// Render: Calorie Ring
-// ──────────────────────────────────────────────
+// ── Render: Calorie Ring ──
 function renderCalorieRing(consumed, target) {
-  const circumference = 2 * Math.PI * 72; // r=72
-  const percent = Math.min(consumed / target, 1);
-  const offset = circumference * (1 - percent);
-
-  // Animate ring
-  calRing.style.strokeDashoffset = offset;
-
-  // Animate count
+  const circ = 2 * Math.PI * 72;
+  calRing.style.strokeDashoffset = circ * (1 - Math.min(consumed / target, 1));
   animateCount(calConsumed, consumed);
-
   calTargetDisplay.textContent = target;
   statConsumed.textContent = `${consumed} kcal`;
   statRemaining.textContent = `${Math.max(0, target - consumed)} kcal`;
-  statBurned.textContent = `0 kcal`; // Placeholder until exercise tracking
+  statBurned.textContent = `0 kcal`;
 }
 
-// ──────────────────────────────────────────────
-// Render: Macro Bars
-// ──────────────────────────────────────────────
-function renderMacro(currentEl, targetEl, barEl, consumed, target) {
-  animateCount(currentEl, consumed);
-  targetEl.textContent = target;
-  const pct = Math.min((consumed / target) * 100, 100);
-  barEl.style.width = `${pct}%`;
+// ── Render: Macro bars ──
+function renderMacro(curEl, tgtEl, barEl, consumed, target) {
+  animateCount(curEl, consumed);
+  tgtEl.textContent = target;
+  barEl.style.width = `${Math.min((consumed / target) * 100, 100)}%`;
 }
 
-// ──────────────────────────────────────────────
-// Render: Water Tracker (8 drops)
-// ──────────────────────────────────────────────
-function renderWaterTracker(currentGlasses) {
-  waterTracker.innerHTML = "";
-  const totalGlasses = 8;
-
-  for (let i = 0; i < totalGlasses; i++) {
-    const drop = document.createElement("div");
-    drop.className = `water-drop ${i < currentGlasses ? "filled" : ""}`;
-    drop.title = `Glass ${i + 1}`;
-    drop.addEventListener("click", () => handleWaterClick(i + 1));
-    waterTracker.appendChild(drop);
-  }
-
-  const liters = (currentGlasses * 0.25).toFixed(1); // ~250ml per glass
-  waterAmount.textContent = liters;
-  waterBadge.textContent = `${currentGlasses} / ${totalGlasses}`;
-
-  if (currentGlasses >= 6) {
-    waterBadge.className = "summary-card-badge badge-good";
-  } else if (currentGlasses >= 3) {
-    waterBadge.className = "summary-card-badge badge-warn";
-  } else {
-    waterBadge.className = "summary-card-badge badge-info";
-  }
-}
-
-// ──────────────────────────────────────────────
-// Handle: Water Click — toggle glasses
-// ──────────────────────────────────────────────
+// ── Render: Water Tracker ──
 let currentWaterGlasses = 0;
 let currentUserId = null;
 
-async function handleWaterClick(glassNumber) {
-  if (!currentUserId) return;
-
-  // Toggle: if clicking the same filled glass, unfill from that point
-  if (glassNumber === currentWaterGlasses) {
-    currentWaterGlasses = glassNumber - 1;
-  } else {
-    currentWaterGlasses = glassNumber;
+function renderWaterTracker(glasses) {
+  waterTracker.innerHTML = "";
+  for (let i = 0; i < 8; i++) {
+    const d = document.createElement("div");
+    d.className = `water-drop ${i < glasses ? "filled" : ""}`;
+    d.title = `Glass ${i + 1}`;
+    d.addEventListener("click", () => handleWaterClick(i + 1));
+    waterTracker.appendChild(d);
   }
+  waterAmount.textContent = (glasses * 0.25).toFixed(1);
+  waterBadge.textContent = `${glasses} / 8`;
+  waterBadge.className = glasses >= 6 ? "summary-card-badge badge-good" : glasses >= 3 ? "summary-card-badge badge-warn" : "summary-card-badge badge-info";
+}
 
+async function handleWaterClick(n) {
+  if (!currentUserId) return;
+  currentWaterGlasses = n === currentWaterGlasses ? n - 1 : n;
   renderWaterTracker(currentWaterGlasses);
-
-  // Persist to Firestore
-  const today = getTodayDateString();
-  const waterRef = doc(db, "users", currentUserId, "waterLogs", today);
-
   try {
-    await setDoc(waterRef, {
-      glasses: currentWaterGlasses,
-      liters: parseFloat((currentWaterGlasses * 0.25).toFixed(2)),
+    await setDoc(doc(db, "users", currentUserId, "waterLogs", getTodayDateString()), {
+      glasses: currentWaterGlasses, liters: parseFloat((currentWaterGlasses * 0.25).toFixed(2)),
       updatedAt: serverTimestamp(),
     }, { merge: true });
-  } catch (error) {
-    console.error("Error saving water log:", error);
-    showToast("error", "Failed to save water intake.");
-  }
+  } catch (e) { console.error("Water save error:", e); showToast("error", "Failed to save water intake."); }
 }
 
-// ──────────────────────────────────────────────
-// Render: Nutrition Score
-// ──────────────────────────────────────────────
-function renderNutritionScore(consumed, goals) {
-  let score = 0;
-  const insights = [];
-
-  // Calorie adherence (0–40 points)
-  const calRatio = consumed.calories / goals.targetCalories;
-  if (calRatio >= 0.85 && calRatio <= 1.1) {
-    score += 40;
-    insights.push({ text: "✓ Calorie target on track", positive: true });
-  } else if (calRatio >= 0.6 && calRatio <= 1.25) {
-    score += 25;
-    insights.push({ text: "⚡ Calories slightly off target", positive: false });
-  } else {
-    score += 10;
-    insights.push({ text: "⚠ Calories significantly off", positive: false });
-  }
-
-  // Protein (0–20)
-  const protRatio = consumed.protein / goals.targetProtein;
-  if (protRatio >= 0.8) {
-    score += 20;
-    insights.push({ text: "✓ Excellent protein intake", positive: true });
-  } else if (protRatio >= 0.5) {
-    score += 12;
-    insights.push({ text: `Need ${Math.round(goals.targetProtein - consumed.protein)}g more protein`, positive: false });
-  } else {
-    score += 5;
-    insights.push({ text: "⚠ Protein intake too low", positive: false });
-  }
-
-  // Carbs (0–20)
-  const carbsRatio = consumed.carbs / goals.targetCarbs;
-  if (carbsRatio >= 0.7 && carbsRatio <= 1.15) {
-    score += 20;
-  } else {
-    score += 10;
-  }
-
-  // Fat (0–20)
-  const fatRatio = consumed.fat / goals.targetFat;
-  if (fatRatio >= 0.7 && fatRatio <= 1.15) {
-    score += 20;
-  } else {
-    score += 10;
-  }
-
-  // Clamp to 100
-  score = Math.min(score, 100);
-
-  // If nothing consumed, show 0
-  if (consumed.calories === 0) {
-    score = 0;
-    insights.length = 0;
-    insights.push({ text: "Log meals to see your score", positive: false });
-  }
-
-  // Update DOM
-  animateCount(scoreValue, score, 1000);
-
-  const circumference = 2 * Math.PI * 18;
-  const offset = circumference * (1 - score / 100);
-  scoreRing.style.strokeDashoffset = offset;
-
-  // Badge
-  if (score >= 80) {
-    scoreBadge.textContent = "Excellent";
-    scoreBadge.className = "summary-card-badge badge-good";
-  } else if (score >= 50) {
-    scoreBadge.textContent = "Good";
-    scoreBadge.className = "summary-card-badge badge-warn";
-  } else {
-    scoreBadge.textContent = "Needs work";
-    scoreBadge.className = "summary-card-badge badge-info";
-  }
-
-  // Insights
-  scoreInsights.innerHTML = insights
-    .map((ins) => `<p class="score-insight-item ${ins.positive ? "positive" : "negative"}">${ins.text}</p>`)
-    .join("");
-}
-
-// ──────────────────────────────────────────────
-// Render: Today's Meals
-// ──────────────────────────────────────────────
+// ── Render: Today's Meals ──
 function renderMeals(meals) {
   if (!meals || meals.length === 0) {
     mealEmpty.style.display = "flex";
-    mealsCount.textContent = "0";
-    mealsBadge.textContent = "0 logged";
     return;
   }
-
   mealEmpty.style.display = "none";
+  mealList.querySelectorAll(".meal-item").forEach(el => el.remove());
 
-  // Clear previous non-empty items
-  mealList.querySelectorAll(".meal-item").forEach((el) => el.remove());
+  const labels = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" };
 
-  const mealTypeConfig = {
-    breakfast: { icon: "🌅", label: "Breakfast" },
-    lunch:     { icon: "☀️", label: "Lunch" },
-    dinner:    { icon: "🌙", label: "Dinner" },
-    snacks:    { icon: "🍿", label: "Snacks" },
-  };
-
-  meals.forEach((meal) => {
-    const config = mealTypeConfig[meal.type] || { icon: "🍴", label: meal.type };
+  meals.forEach(meal => {
+    const icon = MEAL_ICONS[meal.mealType || meal.type] || MEAL_ICONS.snacks;
     const el = document.createElement("div");
     el.className = "meal-item";
     el.innerHTML = `
-      <div class="meal-type-icon ${meal.type}">${config.icon}</div>
+      <div class="meal-type-icon ${meal.mealType || meal.type}">${icon}</div>
       <div class="meal-info">
-        <p class="meal-name">${config.label}${meal.items ? ` · ${meal.items.length} item${meal.items.length > 1 ? "s" : ""}` : ""}</p>
-        <p class="meal-time">${meal.time || ""}</p>
+        <p class="meal-name">${meal.foodName || labels[meal.mealType || meal.type] || "Meal"}</p>
+        <p class="meal-time">${meal.servingGrams ? meal.servingGrams + "g" : ""}${meal.loggedAt ? "" : ""}</p>
       </div>
       <div class="meal-calories">
-        <p class="meal-cal-value">${meal.totalCalories || 0}</p>
+        <p class="meal-cal-value">${meal.calories || meal.totalCalories || 0}</p>
         <p class="meal-cal-label">kcal</p>
-      </div>
-    `;
+      </div>`;
     mealList.insertBefore(el, mealEmpty);
   });
-
-  mealsCount.textContent = meals.length;
-  mealsBadge.textContent = `${meals.length} logged`;
 }
 
-// ──────────────────────────────────────────────
-// Load: User Data from Firestore
-// ──────────────────────────────────────────────
+// ── Firestore Loaders ──
 async function loadUserData(uid) {
-  try {
-    const userRef = doc(db, "users", uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      console.warn("No user document found. Using defaults.");
-      return null;
-    }
-
-    return userSnap.data();
-  } catch (error) {
-    console.error("Error loading user data:", error);
-    showToast("error", "Failed to load your profile data.");
-    return null;
-  }
+  try { const s = await getDoc(doc(db, "users", uid)); return s.exists() ? s.data() : null; }
+  catch (e) { console.error("Load user error:", e); return null; }
 }
 
-// ──────────────────────────────────────────────
-// Load: Today's Meals from Firestore
-// ──────────────────────────────────────────────
-async function loadTodayMeals(uid) {
+async function loadTodayItems(uid) {
   try {
     const today = getTodayDateString();
-    const mealsRef = collection(db, "users", uid, "meals");
-    const q = query(mealsRef, where("date", "==", today), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-
-    const meals = [];
-    snapshot.forEach((docSnap) => {
-      meals.push({ id: docSnap.id, ...docSnap.data() });
-    });
-
-    return meals;
-  } catch (error) {
-    console.error("Error loading meals:", error);
-    return [];
-  }
+    const ref = collection(db, "users", uid, "daily_logs", today, "items");
+    const snap = await getDocs(ref);
+    const items = [];
+    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+    return items;
+  } catch (e) { console.error("Load items error:", e); return []; }
 }
 
-// ──────────────────────────────────────────────
-// Load: Today's Water Log
-// ──────────────────────────────────────────────
 async function loadWaterLog(uid) {
   try {
-    const today = getTodayDateString();
-    const waterRef = doc(db, "users", uid, "waterLogs", today);
-    const waterSnap = await getDoc(waterRef);
-
-    if (waterSnap.exists()) {
-      return waterSnap.data().glasses || 0;
-    }
-    return 0;
-  } catch (error) {
-    console.error("Error loading water log:", error);
-    return 0;
-  }
+    const s = await getDoc(doc(db, "users", uid, "waterLogs", getTodayDateString()));
+    return s.exists() ? s.data().glasses || 0 : 0;
+  } catch (e) { console.error("Water load error:", e); return 0; }
 }
 
-// ──────────────────────────────────────────────
-// Load: Latest Weight Log
-// ──────────────────────────────────────────────
 async function loadLatestWeight(uid) {
   try {
-    const weightRef = collection(db, "users", uid, "weightLogs");
-    const q = query(weightRef, orderBy("date", "desc"), limit(2));
-    const snapshot = await getDocs(q);
-
+    const ref = collection(db, "users", uid, "weightLogs");
+    const q2 = query(ref, orderBy("date", "desc"), limit(2));
+    const snap = await getDocs(q2);
     const entries = [];
-    snapshot.forEach((docSnap) => entries.push(docSnap.data()));
-
+    snap.forEach(d => entries.push(d.data()));
     return entries;
-  } catch (error) {
-    console.error("Error loading weight logs:", error);
-    return [];
-  }
+  } catch (e) { console.error("Weight load error:", e); return []; }
 }
 
-// ──────────────────────────────────────────────
-// Hydrate Dashboard
-// ──────────────────────────────────────────────
+// ── Hydrate Dashboard ──
 async function hydrateDashboard(user) {
   currentUserId = user.uid;
-
-  // ---- Static header data ----
-  const greeting = getGreeting();
-  greetingText.textContent = greeting.text;
-  greetingEmoji.textContent = greeting.emoji;
+  greetingText.textContent = getGreeting();
   currentDate.textContent = formatDisplayDate();
-
-  const firstName = (user.displayName || "User").split(" ")[0];
-  userFirstName.textContent = firstName;
-
-  // Sidebar user info
+  userFirstName.textContent = (user.displayName || "User").split(" ")[0];
   userDisplayName.textContent = user.displayName || "NutriTrack User";
   userEmail.textContent = user.email || "";
 
-  // Avatar — photo or initials
   if (user.photoURL) {
-    userAvatar.innerHTML = `<img src="${user.photoURL}" alt="Profile photo" referrerpolicy="no-referrer">`;
+    userAvatar.innerHTML = `<img src="${user.photoURL}" alt="Profile" referrerpolicy="no-referrer">`;
   } else {
-    const initials = (user.displayName || "U")
-      .split(" ")
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-    userAvatar.textContent = initials;
+    userAvatar.textContent = (user.displayName || "U").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
   }
 
-  // ---- Fetch data in parallel ----
-  const [userData, meals, waterGlasses, weightEntries] = await Promise.all([
-    loadUserData(user.uid),
-    loadTodayMeals(user.uid),
-    loadWaterLog(user.uid),
-    loadLatestWeight(user.uid),
+  const [userData, items, waterGlasses, weightEntries] = await Promise.all([
+    loadUserData(user.uid), loadTodayItems(user.uid),
+    loadWaterLog(user.uid), loadLatestWeight(user.uid),
   ]);
 
-  // ---- Goals (from Firestore or defaults) ----
-  const goals = userData?.goals || {
-    targetCalories: 2000,
-    targetProtein: 140,
-    targetCarbs: 250,
-    targetFat: 70,
-    targetFiber: 30,
-  };
+  const goals = userData?.goals || { targetCalories: 2000, targetProtein: 140, targetCarbs: 250, targetFat: 70, targetFiber: 30 };
+  streakCount.textContent = userData?.streak?.current || 0;
 
-  // ---- Streak ----
-  const streak = userData?.streak?.current || 0;
-  streakCount.textContent = streak;
-
-  // ---- Aggregate today's nutrition from meals ----
-  let totalCal = 0;
-  let totalProtein = 0;
-  let totalCarbs = 0;
-  let totalFat = 0;
-  let totalFiber = 0;
-
-  meals.forEach((meal) => {
-    totalCal     += meal.totalCalories || 0;
-    totalProtein += meal.totalProtein  || 0;
-    totalCarbs   += meal.totalCarbs    || 0;
-    totalFat     += meal.totalFat      || 0;
-    totalFiber   += meal.totalFiber    || 0;
+  // Aggregate totals from daily_logs items
+  let totalCal = 0, totalP = 0, totalC = 0, totalF = 0, totalFb = 0;
+  items.forEach(it => {
+    totalCal += it.calories || 0;
+    totalP   += it.protein || 0;
+    totalC   += it.carbs || 0;
+    totalF   += it.fat || 0;
+    totalFb  += it.fiber || 0;
   });
 
-  // ---- Render everything with animations ----
-
-  // Small delay to let the page paint first
   requestAnimationFrame(() => {
-    // Calorie ring
     renderCalorieRing(Math.round(totalCal), goals.targetCalories);
-
-    // Macro bars
-    renderMacro(proteinConsumed, proteinTarget, proteinBar, Math.round(totalProtein), goals.targetProtein);
-    renderMacro(carbsConsumed, carbsTarget, carbsBar, Math.round(totalCarbs), goals.targetCarbs);
-    renderMacro(fatConsumed, fatTarget, fatBar, Math.round(totalFat), goals.targetFat);
-    renderMacro(fiberConsumed, fiberTarget, fiberBar, Math.round(totalFiber), goals.targetFiber || 30);
-
-    // Meals
-    renderMeals(meals);
-
-    // Water
+    renderMacro(proteinConsumed, proteinTarget, proteinBar, Math.round(totalP), goals.targetProtein);
+    renderMacro(carbsConsumed, carbsTarget, carbsBar, Math.round(totalC), goals.targetCarbs);
+    renderMacro(fatConsumed, fatTarget, fatBar, Math.round(totalF), goals.targetFat);
+    renderMacro(fiberConsumed, fiberTarget, fiberBar, Math.round(totalFb), goals.targetFiber || 30);
+    renderMeals(items);
     currentWaterGlasses = waterGlasses;
     renderWaterTracker(currentWaterGlasses);
 
-    // Weight
     if (weightEntries.length > 0) {
-      const latest = weightEntries[0];
-      weightValue.textContent = latest.weight || "--";
-
+      weightValue.textContent = weightEntries[0].weight || "--";
       if (weightEntries.length >= 2) {
-        const prev = weightEntries[1];
-        const diff = latest.weight - prev.weight;
+        const diff = weightEntries[0].weight - weightEntries[1].weight;
         if (diff < -0.1) {
           weightTrend.className = "weight-trend down";
           weightTrend.querySelector("svg").innerHTML = '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>';
-          weightTrendText.textContent = `${Math.abs(diff).toFixed(1)} kg ↓`;
+          weightTrendText.textContent = `${Math.abs(diff).toFixed(1)} kg down`;
         } else if (diff > 0.1) {
           weightTrend.className = "weight-trend up";
           weightTrend.querySelector("svg").innerHTML = '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>';
-          weightTrendText.textContent = `${diff.toFixed(1)} kg ↑`;
-        } else {
-          weightTrend.className = "weight-trend stable";
-          weightTrend.querySelector("svg").innerHTML = '<line x1="5" y1="12" x2="19" y2="12"/>';
-          weightTrendText.textContent = "Stable";
+          weightTrendText.textContent = `${diff.toFixed(1)} kg up`;
         }
       }
     } else if (userData?.profile?.weight) {
       weightValue.textContent = userData.profile.weight;
     }
-
-    // Nutrition Score
-    renderNutritionScore(
-      { calories: totalCal, protein: totalProtein, carbs: totalCarbs, fat: totalFat },
-      goals
-    );
   });
 }
 
-// ──────────────────────────────────────────────
-// Auth Guard & Bootstrap
-// ──────────────────────────────────────────────
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    // Not authenticated → redirect to login
-    window.location.href = "./login.html";
-    return;
-  }
-
-  try {
-    await hydrateDashboard(user);
-  } catch (err) {
-    console.error("Dashboard hydration error:", err);
-    showToast("error", "Something went wrong loading your dashboard.");
-  } finally {
-    // Dismiss loading screen
-    appLoading.classList.add("hidden");
-    setTimeout(() => appLoading.remove(), 600);
-  }
+// ── Auth Guard ──
+onAuthStateChanged(auth, async user => {
+  if (!user) { window.location.href = "./login.html"; return; }
+  try { await hydrateDashboard(user); }
+  catch (e) { console.error("Hydration error:", e); showToast("error", "Something went wrong."); }
+  finally { appLoading.classList.add("hidden"); setTimeout(() => appLoading.remove(), 600); }
 });
