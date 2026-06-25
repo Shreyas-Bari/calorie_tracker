@@ -96,8 +96,8 @@ function configureChartDefaults() {
   Chart.defaults.plugins.tooltip.cornerRadius = 8;
   Chart.defaults.plugins.tooltip.padding = 12;
   Chart.defaults.plugins.tooltip.titleFont = { weight: "600" };
-  Chart.defaults.scale.grid = { color: "rgba(255,255,255,0.05)" };
-  Chart.defaults.scale.border = { color: "rgba(255,255,255,0.08)" };
+  Chart.defaults.scale.grid = { color: "rgba(255, 255, 255, 0.09)" };
+  Chart.defaults.scale.border = { color: "rgba(255, 255, 255, 0.12)" };
 }
 
 // ── Firestore Loaders ──
@@ -288,6 +288,7 @@ function renderDailyTab(todayTotals, goals) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       cutout: "65%",
       plugins: {
         legend: { position: "bottom" },
@@ -393,12 +394,24 @@ function renderWeeklyTab(daysData, goals) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { position: "bottom" },
         tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} kcal` } }
       },
       scales: {
-        y: { beginAtZero: true, ticks: { callback: v => v + " kcal" } }
+        y: {
+          beginAtZero: true,
+          ticks: {
+            padding: 8,
+            callback: v => v + " kcal"
+          }
+        },
+        x: {
+          ticks: {
+            padding: 8
+          }
+        }
       }
     }
   });
@@ -418,10 +431,23 @@ function renderWeeklyTab(daysData, goals) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { position: "bottom" } },
       scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true, ticks: { callback: v => v + "g" } }
+        x: {
+          stacked: true,
+          ticks: {
+            padding: 8
+          }
+        },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: {
+            padding: 8,
+            callback: v => v + "g"
+          }
+        }
       }
     }
   });
@@ -496,14 +522,23 @@ function renderMonthlyTab(daysData, goals, weightEntries) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { position: "bottom" },
         tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} kcal` } }
       },
       scales: {
-        y: { beginAtZero: true, ticks: { callback: v => v + " kcal" } },
-        x: {
+        y: {
+          beginAtZero: true,
           ticks: {
+            padding: 8,
+            callback: v => v + " kcal"
+          }
+        },
+        x: {
+          offset: true,
+          ticks: {
+            padding: 8,
             maxTicksLimit: 10,
             maxRotation: 45,
             minRotation: 0
@@ -542,12 +577,24 @@ function renderMonthlyTab(daysData, goals, weightEntries) {
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           legend: { position: "bottom" },
           tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y} kg` } }
         },
         scales: {
-          y: { ticks: { callback: v => v + " kg" } }
+          y: {
+            ticks: {
+              padding: 8,
+              callback: v => v + " kg"
+            }
+          },
+          x: {
+            offset: true,
+            ticks: {
+              padding: 8
+            }
+          }
         }
       }
     });

@@ -385,7 +385,21 @@ body {
 
 /* -- Macro Pie Card -- */
 .chart-card { padding: 24px; }
-.chart-card canvas { max-height: 260px; }
+
+/* Chart Container & Sizing Fixes */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 300px;
+}
+.chart-container--doughnut {
+  height: 250px;
+}
+.chart-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
 
 .chart-title {
   font-size: 0.95rem; font-weight: 600; color: var(--text-primary);
@@ -454,7 +468,6 @@ body {
   gap: 20px;
 }
 .weekly-chart-card { padding: 24px; }
-.weekly-chart-card canvas { max-height: 280px; }
 
 /* Stat Tiles */
 .stat-tiles {
