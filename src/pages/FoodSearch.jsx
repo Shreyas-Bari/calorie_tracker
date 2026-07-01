@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +14,8 @@ import {
   Utensils, 
   X,
   Check,
-  Flame
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 
 const FOOD_DB = [
@@ -101,7 +102,9 @@ const FOOD_DB = [
 const CATEGORIES = ["All", "Breakfast", "Lunch/Dinner", "Snacks", "Beverages", "Dairy", "Grains", "Fruits & Vegetables"];
 
 export default function FoodSearch({ user }) {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // Initialize to today in local time
+  const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   
@@ -113,6 +116,8 @@ export default function FoodSearch({ user }) {
   // Log items for selected date
   const [loggedItems, setLoggedItems] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const isToday = selectedDate === todayStr;
 
   // Firestore path: users/{uid}/daily_logs/{date}/items
   const loadLoggedItems = async () => {
@@ -138,7 +143,9 @@ export default function FoodSearch({ user }) {
   const changeDateByOffset = (offset) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + offset);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    const newDateStr = d.toLocaleDateString('en-CA');
+    if (newDateStr > todayStr) return; // Block future dates
+    setSelectedDate(newDateStr);
   };
 
   // Filter food database based on query & category
@@ -165,7 +172,7 @@ export default function FoodSearch({ user }) {
 
   // Log food to Firestore
   const handleLogFood = async () => {
-    if (!selectedFood) return;
+    if (!selectedFood || !isToday) return;
     try {
       const ref = collection(db, "users", user.uid, "daily_logs", selectedDate, "items");
       const newItem = {
@@ -192,6 +199,7 @@ export default function FoodSearch({ user }) {
 
   // Delete logged item
   const handleDeleteItem = async (itemId) => {
+    if (!isToday) return;
     try {
       const docRef = doc(db, "users", user.uid, "daily_logs", selectedDate, "items", itemId);
       await deleteDoc(docRef);
@@ -203,11 +211,11 @@ export default function FoodSearch({ user }) {
 
   // Formatted date label
   const getDisplayDateLabel = () => {
-    const today = new Date().toISOString().split('T')[0];
-    if (selectedDate === today) return "Today";
+    if (isToday) return "Today";
     return new Date(selectedDate).toLocaleDateString("en-IN", {
       day: "numeric",
-      month: "short"
+      month: "short",
+      year: "numeric"
     });
   };
 
@@ -233,8 +241,11 @@ export default function FoodSearch({ user }) {
       {/* Page Header and Date Selector */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Food Search & Selector</h1>
-          <p className="text-slate-400 text-sm mt-1">Search the database and log meals to your journal</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+            Food Search & Journal
+            {!isToday && <Lock className="w-5 h-5 text-amber-500" />}
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">Search the database and manage your daily logs</p>
         </div>
 
         {/* Date Selector Navigation */}
@@ -246,134 +257,265 @@ export default function FoodSearch({ user }) {
             <ChevronLeft className="w-4 h-4" />
           </button>
           
-          <div className="flex items-center gap-2 px-3 font-semibold text-sm text-white min-w-[120px] justify-center relative">
-            <Calendar className="w-4 h-4 text-accent-teal" />
-            <span>{getDisplayDateLabel()}</span>
+          <div className="flex items-center gap-2 px-3 font-semibold text-sm text-white min-w-[140px] justify-center relative">
+            <Calendar className={`w-4 h-4 ${isToday ? 'text-accent-teal' : 'text-amber-500'}`} />
+            <span className={!isToday ? 'text-amber-500' : ''}>{getDisplayDateLabel()}</span>
             <input 
               type="date" 
               value={selectedDate}
+              max={todayStr}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="absolute opacity-0 w-8 h-8 cursor-pointer"
+              className="absolute opacity-0 w-full h-full cursor-pointer"
             />
           </div>
 
           <button 
             onClick={() => changeDateByOffset(1)} 
-            className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-400 hover:text-white"
+            disabled={isToday}
+            className={`p-2 rounded-xl transition-colors ${
+              isToday ? 'text-white/10 cursor-not-allowed' : 'text-slate-400 hover:text-white hover:bg-white/10'
+            }`}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Search Bar & Category Filters */}
-      <GlassCard className="space-y-4" delay={0.05} hover={false}>
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-          {/* Search Input */}
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search food item (e.g. Roti, Poha, Chicken, Mango)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-300 rounded-xl py-3.5 pl-12 pr-10 text-sm text-white placeholder-slate-500 outline-none"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-4 top-4 text-slate-500 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* Past Date Alert Bar */}
+      <AnimatePresence>
+        {!isToday && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, y: -10 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -10 }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <div className="text-sm">
+                <span className="font-bold">Viewing archived log for {getDisplayDateLabel()} — Read-only mode.</span> 
+                <span className="ml-1 opacity-80">You cannot modify past journal entries.</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Split Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative">
+        
+        {/* Left Pane (2/3 width) - Search & Grid */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Search Bar & Category Filters */}
+          <GlassCard className="space-y-4" delay={0.05} hover={false}>
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+              {/* Search Input */}
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search food item (e.g. Roti, Poha, Chicken, Mango)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-300 rounded-xl py-3.5 pl-12 pr-10 text-sm text-white placeholder-slate-500 outline-none"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-4 top-4 text-slate-500 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Results count */}
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest whitespace-nowrap shrink-0">
+                {filteredFoods.length} items
+              </span>
+            </div>
+
+            {/* Category pills */}
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
+                    activeCategory === cat 
+                      ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-md shadow-accent-purple/20' 
+                      : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </GlassCard>
+
+          {/* 3-Column Food Card Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-1 pb-4">
+            {filteredFoods.length === 0 ? (
+              <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
+                  <Search className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-semibold text-slate-400">No food items match your search</p>
+                <p className="text-xs text-slate-500 mt-1">Try a different keyword or category filter</p>
+              </div>
+            ) : (
+              filteredFoods.map((food, index) => (
+                <motion.div
+                  key={food.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3), ease: [0.33, 1, 0.68, 1] }}
+                  onClick={() => handleSelectFood(food)}
+                  className={`relative overflow-hidden bg-slate-950/40 backdrop-blur-xl border rounded-2xl p-5 shadow-glass cursor-pointer hover:scale-[1.01] hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all duration-300 ${
+                    selectedFood?.id === food.id 
+                      ? 'border-accent-teal/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]' 
+                      : 'border-white/[0.06]'
+                  }`}
+                >
+                  {/* Inner subtle gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+
+                  <div className="relative z-10">
+                    {/* Food title & category */}
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-bold text-slate-100 leading-snug">{food.name}</h3>
+                        <span className="inline-block mt-1.5 text-[9px] font-bold text-accent-teal/80 bg-accent-teal/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                          {food.category}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-lg font-black text-slate-100 leading-none">{food.calories}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">kcal</p>
+                      </div>
+                    </div>
+
+                    {/* Serving label */}
+                    <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-3">per 100g serving</p>
+
+                    {/* Macro tag pills */}
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 text-center py-1.5 rounded-lg bg-pink-500/10 border border-pink-500/15 text-[10px] font-bold text-accent-pink">
+                        P {food.protein}g
+                      </span>
+                      <span className="flex-1 text-center py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/15 text-[10px] font-bold text-accent-yellow">
+                        C {food.carbs}g
+                      </span>
+                      <span className="flex-1 text-center py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-[10px] font-bold text-accent-green">
+                        F {food.fat}g
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
             )}
           </div>
-
-          {/* Results count */}
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest whitespace-nowrap shrink-0">
-            {filteredFoods.length} items
-          </span>
         </div>
 
-        {/* Category pills */}
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
-                activeCategory === cat 
-                  ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-md shadow-accent-purple/20' 
-                  : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </GlassCard>
-
-      {/* 3-Column Food Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[calc(100vh-380px)] overflow-y-auto pr-1">
-        {filteredFoods.length === 0 ? (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
-              <Search className="w-5 h-5" />
+        {/* Right Pane (1/3 width) - Sticky Log Sidebar */}
+        <div className="lg:col-span-4 sticky top-8">
+          <GlassCard className={`flex flex-col h-[calc(100vh-140px)] border-t-2 ${isToday ? 'border-t-accent-teal' : 'border-t-amber-500/80'}`} delay={0.15} hover={false}>
+            <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
+              <p className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
+                <Utensils className={`w-4 h-4 ${isToday ? 'text-accent-teal' : 'text-amber-500'}`} />
+                Current Log Tracker
+              </p>
+              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{loggedItems.length} logged</span>
             </div>
-            <p className="text-sm font-semibold text-slate-400">No food items match your search</p>
-            <p className="text-xs text-slate-500 mt-1">Try a different keyword or category filter</p>
-          </div>
-        ) : (
-          filteredFoods.map((food, index) => (
-            <motion.div
-              key={food.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3), ease: [0.33, 1, 0.68, 1] }}
-              onClick={() => handleSelectFood(food)}
-              className={`relative overflow-hidden bg-slate-950/40 backdrop-blur-xl border rounded-2xl p-5 shadow-glass cursor-pointer hover:scale-[1.01] hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all duration-300 ${
-                selectedFood?.id === food.id 
-                  ? 'border-accent-teal/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]' 
-                  : 'border-white/[0.06]'
-              }`}
-            >
-              {/* Inner subtle gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
 
-              <div className="relative z-10">
-                {/* Food title & category */}
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-slate-100 leading-snug">{food.name}</h3>
-                    <span className="inline-block mt-1.5 text-[9px] font-bold text-accent-teal/80 bg-accent-teal/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                      {food.category}
-                    </span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-lg font-black text-slate-100 leading-none">{food.calories}</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">kcal</p>
-                  </div>
+            {/* Logged items list */}
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+              {loading ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-500 text-xs">
+                  Loading food items...
                 </div>
+              ) : loggedItems.length === 0 ? (
+                <div className="py-12 flex flex-col items-center text-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
+                    <Utensils className="w-5 h-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-400">Empty log tracker</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[200px]">Use the food cards to search and log entries.</p>
+                </div>
+              ) : (
+                <AnimatePresence mode="popLayout">
+                  {loggedItems.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="flex flex-col gap-3 bg-white/[0.02] border border-white/[0.04] p-3.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <p className="text-sm font-bold text-white leading-snug">{item.foodName}</p>
+                          <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">
+                            {item.mealType} &middot; {item.servingGrams}g
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-extrabold text-slate-100">{item.calories}</p>
+                          <p className="text-[9px] text-slate-500 font-semibold uppercase mt-0.5">kcal</p>
+                        </div>
+                      </div>
 
-                {/* Serving label */}
-                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-3">per 100g serving</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-bold text-accent-pink bg-pink-500/10 px-1.5 py-0.5 rounded">P {item.protein}g</span>
+                          <span className="text-[9px] font-bold text-accent-yellow bg-yellow-500/10 px-1.5 py-0.5 rounded">C {item.carbs}g</span>
+                          <span className="text-[9px] font-bold text-accent-green bg-emerald-500/10 px-1.5 py-0.5 rounded">F {item.fat}g</span>
+                        </div>
+                        {isToday && (
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
+                            title="Remove log entry"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              )}
+            </div>
 
-                {/* Macro tag pills */}
-                <div className="flex items-center gap-2">
-                  <span className="flex-1 text-center py-1.5 rounded-lg bg-pink-500/10 border border-pink-500/15 text-[10px] font-bold text-accent-pink">
-                    P {food.protein}g
-                  </span>
-                  <span className="flex-1 text-center py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/15 text-[10px] font-bold text-accent-yellow">
-                    C {food.carbs}g
-                  </span>
-                  <span className="flex-1 text-center py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-[10px] font-bold text-accent-green">
-                    F {food.fat}g
-                  </span>
+            {/* Daily Summary totals at the bottom */}
+            <div className="mt-4 pt-4 border-t border-white/[0.06] space-y-4 shrink-0">
+              <div className="flex items-center justify-between text-white font-extrabold">
+                <span className="text-sm">Total Logged</span>
+                <span className="text-lg bg-gradient-to-r from-accent-purple to-accent-teal bg-clip-text text-transparent">{dailyTotals.calories} kcal</span>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-2 text-center text-[10px] text-slate-400">
+                <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                  <p className="font-bold text-accent-pink">{dailyTotals.protein}g</p>
+                  <p className="uppercase mt-0.5 text-slate-500 font-bold">Pro</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                  <p className="font-bold text-accent-yellow">{dailyTotals.carbs}g</p>
+                  <p className="uppercase mt-0.5 text-slate-500 font-bold">Carb</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                  <p className="font-bold text-accent-green">{dailyTotals.fat}g</p>
+                  <p className="uppercase mt-0.5 text-slate-500 font-bold">Fat</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                  <p className="font-bold text-accent-blue">{dailyTotals.fiber}g</p>
+                  <p className="uppercase mt-0.5 text-slate-500 font-bold">Fib</p>
                 </div>
               </div>
-            </motion.div>
-          ))
-        )}
+            </div>
+          </GlassCard>
+        </div>
       </div>
 
       {/* Modal Overlay — appears when a food card is clicked */}
@@ -384,47 +526,47 @@ export default function FoodSearch({ user }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
             onClick={(e) => { if (e.target === e.currentTarget) setSelectedFood(null); }}
           >
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-            {/* Modal Content */}
+            {/* Modal Content - Made larger and more prominent per requirements */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="relative w-full max-w-lg bg-slate-950/90 backdrop-blur-2xl border border-white/[0.08] rounded-3xl p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] z-10"
+              className="relative w-full max-w-2xl bg-slate-950/90 backdrop-blur-2xl border border-white/[0.08] rounded-3xl p-8 shadow-[0_16px_64px_0_rgba(0,0,0,0.6)] z-10"
             >
               {/* Modal header */}
-              <div className="flex items-center justify-between border-b border-white/[0.06] pb-4 mb-5">
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-5 mb-6">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-extrabold text-slate-100">{selectedFood.name}</h3>
-                  <span className="inline-block mt-1 text-[9px] font-bold text-accent-teal/80 bg-accent-teal/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                  <h3 className="text-2xl font-extrabold text-slate-100">{selectedFood.name}</h3>
+                  <span className="inline-block mt-2 text-[10px] font-bold text-accent-teal bg-accent-teal/10 px-2.5 py-1 rounded-full uppercase tracking-widest border border-accent-teal/20">
                     {selectedFood.category}
                   </span>
                 </div>
                 <button 
                   onClick={() => setSelectedFood(null)}
-                  className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-colors"
+                  className="p-2.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Serving size & Meal slot — side by side */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* Serving size */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Serving Size (Grams)</label>
-                  <div className="flex items-center gap-2">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1">Quantity (Grams)</label>
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={() => setServingGrams(Math.max(10, servingGrams - 50))}
-                      className="p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
+                      className="p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
                     >
-                      <Minus className="w-4 h-4" />
+                      <Minus className="w-5 h-5" />
                     </button>
                     <input
                       type="number"
@@ -432,23 +574,23 @@ export default function FoodSearch({ user }) {
                       min="10"
                       max="2000"
                       onChange={(e) => setServingGrams(Math.max(1, parseInt(e.target.value) || 0))}
-                      className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal text-center transition-all duration-300 rounded-xl py-2.5 text-sm font-bold text-white outline-none"
+                      className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal text-center transition-all duration-300 rounded-xl py-3.5 text-lg font-bold text-white outline-none"
                     />
                     <button
                       onClick={() => setServingGrams(servingGrams + 50)}
-                      className="p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
+                      className="p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-5 h-5" />
                     </button>
                   </div>
 
                   {/* Quick Chips */}
-                  <div className="flex gap-1.5 mt-2.5">
+                  <div className="flex gap-2 mt-4">
                     {[50, 100, 150, 200, 250].map((grams) => (
                       <button
                         key={grams}
                         onClick={() => setServingGrams(grams)}
-                        className={`flex-1 py-1 rounded-lg text-[10px] font-bold uppercase transition-colors ${
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors ${
                           servingGrams === grams 
                             ? 'bg-accent-teal text-canvas shadow-sm' 
                             : 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400'
@@ -462,13 +604,13 @@ export default function FoodSearch({ user }) {
 
                 {/* Meal slot */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Meal Type</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1">Meal Classification</label>
+                  <div className="grid grid-cols-2 gap-3">
                     {['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((slot) => (
                       <button
                         key={slot}
                         onClick={() => setMealSlot(slot)}
-                        className={`py-2.5 rounded-xl text-xs font-semibold uppercase transition-all duration-300 ${
+                        className={`py-3.5 rounded-xl text-xs font-semibold uppercase transition-all duration-300 ${
                           mealSlot === slot 
                             ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-md' 
                             : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
@@ -482,141 +624,51 @@ export default function FoodSearch({ user }) {
               </div>
 
               {/* Calculated metrics display */}
-              <div className="grid grid-cols-5 gap-2 bg-white/[0.02] border border-white/[0.04] p-4 rounded-xl text-center mb-5">
+              <div className="grid grid-cols-5 gap-3 bg-white/[0.02] border border-white/[0.04] p-5 rounded-xl text-center mb-6">
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Calories</p>
-                  <p className="text-base font-extrabold text-slate-100 mt-1">{calculated.calories}</p>
-                  <p className="text-[8px] text-slate-500 font-bold uppercase">kcal</p>
+                  <p className="text-xl font-extrabold text-slate-100 mt-1">{calculated.calories}</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">kcal</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Protein</p>
-                  <p className="text-base font-extrabold text-accent-pink mt-1">{calculated.protein}g</p>
-                  <p className="text-[8px] text-slate-500 font-bold uppercase">P</p>
+                  <p className="text-xl font-extrabold text-accent-pink mt-1">{calculated.protein}g</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">P</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Carbs</p>
-                  <p className="text-base font-extrabold text-accent-yellow mt-1">{calculated.carbs}g</p>
-                  <p className="text-[8px] text-slate-500 font-bold uppercase">C</p>
+                  <p className="text-xl font-extrabold text-accent-yellow mt-1">{calculated.carbs}g</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">C</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fat</p>
-                  <p className="text-base font-extrabold text-accent-green mt-1">{calculated.fat}g</p>
-                  <p className="text-[8px] text-slate-500 font-bold uppercase">F</p>
+                  <p className="text-xl font-extrabold text-accent-green mt-1">{calculated.fat}g</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">F</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fiber</p>
-                  <p className="text-base font-extrabold text-accent-blue mt-1">{calculated.fiber}g</p>
-                  <p className="text-[8px] text-slate-500 font-bold uppercase">Fb</p>
+                  <p className="text-xl font-extrabold text-accent-blue mt-1">{calculated.fiber}g</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">Fb</p>
                 </div>
               </div>
 
               {/* Log button */}
-              <button
-                onClick={handleLogFood}
-                className="w-full py-3.5 bg-gradient-to-r from-accent-purple to-accent-teal hover:from-accent-purple/90 hover:to-accent-teal/90 text-white font-bold rounded-xl text-sm transition-all duration-300 shadow-md shadow-accent-purple/20 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
-              >
-                <Check className="w-4 h-4" /> Log This Food
-              </button>
+              {isToday ? (
+                <button
+                  onClick={handleLogFood}
+                  className="w-full py-4 bg-gradient-to-r from-accent-purple to-accent-teal hover:from-accent-purple/90 hover:to-accent-teal/90 text-white font-bold rounded-xl text-base transition-all duration-300 shadow-md shadow-accent-purple/20 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Check className="w-5 h-5" /> Log This Food
+                </button>
+              ) : (
+                <div className="w-full py-4 bg-white/5 border border-white/10 text-slate-400 font-bold rounded-xl text-base flex items-center justify-center gap-2 cursor-not-allowed">
+                  <Lock className="w-5 h-5" /> Cannot log to past dates
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Daily Log Summary — collapsed at bottom */}
-      <GlassCard className="flex flex-col" delay={0.15} hover={false}>
-        <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
-          <p className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
-            <Utensils className="w-4 h-4 text-accent-purple" />
-            Journal Entries
-          </p>
-          <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{loggedItems.length} logged</span>
-        </div>
-
-        {/* Logged items list */}
-        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-2">
-          {loading ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-500 text-xs">
-              Loading food items...
-            </div>
-          ) : loggedItems.length === 0 ? (
-            <div className="py-12 flex flex-col items-center text-center justify-center">
-              <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
-                <Utensils className="w-5 h-5" />
-              </div>
-              <p className="text-sm font-semibold text-slate-400">Empty logs for this date</p>
-              <p className="text-xs text-slate-500 mt-1 max-w-[200px]">Use the food cards above to search and log entries.</p>
-            </div>
-          ) : (
-            <AnimatePresence mode="popLayout">
-              {loggedItems.map((item) => (
-                <motion.div
-                  key={item.id}
-                  layout
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.04] p-3.5 rounded-xl hover:bg-white/[0.04] transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{item.foodName}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider font-semibold">
-                      {item.mealType} &middot; {item.servingGrams}g
-                    </p>
-                  </div>
-
-                  {/* Macro pills on logged items */}
-                  <div className="hidden md:flex items-center gap-1.5">
-                    <span className="text-[9px] font-bold text-accent-pink bg-pink-500/10 px-1.5 py-0.5 rounded">P{item.protein}g</span>
-                    <span className="text-[9px] font-bold text-accent-yellow bg-yellow-500/10 px-1.5 py-0.5 rounded">C{item.carbs}g</span>
-                    <span className="text-[9px] font-bold text-accent-green bg-emerald-500/10 px-1.5 py-0.5 rounded">F{item.fat}g</span>
-                  </div>
-                  
-                  <div className="text-right pr-2">
-                    <p className="text-sm font-extrabold text-slate-100">{item.calories}</p>
-                    <p className="text-[9px] text-slate-500 font-semibold uppercase mt-0.5">kcal</p>
-                  </div>
-
-                  <button
-                    onClick={() => handleDeleteItem(item.id)}
-                    className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
-        </div>
-
-        {/* Daily Summary totals at the bottom */}
-        {loggedItems.length > 0 && (
-          <div className="mt-5 pt-5 border-t border-white/[0.06] space-y-4">
-            <div className="flex items-center justify-between text-white font-extrabold">
-              <span className="text-sm">Total Calories Logged</span>
-              <span className="text-lg bg-gradient-to-r from-accent-purple to-accent-teal bg-clip-text text-transparent">{dailyTotals.calories} kcal</span>
-            </div>
-            
-            <div className="grid grid-cols-4 gap-2 text-center text-[10px] text-slate-400">
-              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                <p className="font-bold text-accent-pink">{dailyTotals.protein}g</p>
-                <p className="uppercase mt-0.5 text-slate-500 font-bold">Protein</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                <p className="font-bold text-accent-yellow">{dailyTotals.carbs}g</p>
-                <p className="uppercase mt-0.5 text-slate-500 font-bold">Carbs</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                <p className="font-bold text-accent-green">{dailyTotals.fat}g</p>
-                <p className="uppercase mt-0.5 text-slate-500 font-bold">Fat</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                <p className="font-bold text-accent-blue">{dailyTotals.fiber}g</p>
-                <p className="uppercase mt-0.5 text-slate-500 font-bold">Fiber</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </GlassCard>
     </div>
   );
 }

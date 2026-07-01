@@ -218,7 +218,7 @@ export default function Goals({ user }) {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-4xl mx-auto pb-12">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-extrabold text-white tracking-tight">Goals & Profile</h1>
@@ -236,38 +236,41 @@ export default function Goals({ user }) {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Form & Recommended Panel (Span 7) */}
-        <form onSubmit={handleSaveProfile} className="lg:col-span-7 space-y-6">
-          <GlassCard className="space-y-6" delay={0.1}>
-            <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
-              <User className="w-4 h-4 text-accent-teal" /> Personal Profile Parameters
-            </p>
+      {/* Single Column Form Layout */}
+      <form onSubmit={handleSaveProfile} className="space-y-8">
+        
+        {/* Section 1: Personal Profile */}
+        <GlassCard className="space-y-6" delay={0.1}>
+          <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2 border-b border-white/[0.06] pb-4">
+            <User className="w-4 h-4 text-accent-teal" /> Personal Profile Parameters
+          </p>
 
-            {/* Inputs grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Age (Years)</label>
-                <input
-                  type="number"
-                  min="10"
-                  max="100"
-                  value={age}
-                  onChange={(e) => setAge(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal transition-all rounded-xl py-3 px-4 text-sm text-white placeholder-slate-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Height (cm)</label>
-                <input
-                  type="number"
-                  min="80"
-                  max="250"
-                  value={height}
-                  onChange={(e) => setHeight(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal transition-all rounded-xl py-3 px-4 text-sm text-white placeholder-slate-500 outline-none"
-                />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
+            {/* Left side: Basic inputs */}
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Age (Years)</label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="100"
+                    value={age}
+                    onChange={(e) => setAge(parseInt(e.target.value) || 0)}
+                    className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal transition-all rounded-xl py-3 px-4 text-sm text-white placeholder-slate-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Height (cm)</label>
+                  <input
+                    type="number"
+                    min="80"
+                    max="250"
+                    value={height}
+                    onChange={(e) => setHeight(parseInt(e.target.value) || 0)}
+                    className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal transition-all rounded-xl py-3 px-4 text-sm text-white placeholder-slate-500 outline-none"
+                  />
+                </div>
               </div>
 
               <div>
@@ -283,19 +286,19 @@ export default function Goals({ user }) {
               </div>
             </div>
 
-            {/* Gender selectors */}
+            {/* Right side: Gender */}
             <div>
               <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Gender</label>
-              <div className="flex bg-white/5 p-1 rounded-xl w-fit gap-1 border border-white/10">
+              <div className="flex flex-col bg-white/5 p-1.5 rounded-xl border border-white/10 space-y-1">
                 {['Male', 'Female', 'Other'].map((g) => (
                   <button
                     key={g}
                     type="button"
                     onClick={() => setGender(g)}
-                    className={`px-6 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${
+                    className={`px-6 py-3 rounded-lg text-sm font-bold transition-all duration-300 text-left ${
                       gender === g 
                         ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-sm' 
-                        : 'text-slate-400 hover:text-white'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     {g}
@@ -303,25 +306,37 @@ export default function Goals({ user }) {
                 ))}
               </div>
             </div>
+          </div>
+        </GlassCard>
 
+        {/* Section 2: Activity & Strategy */}
+        <GlassCard className="space-y-6" delay={0.2}>
+          <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2 border-b border-white/[0.06] pb-4">
+            <Activity className="w-4 h-4 text-accent-purple" /> Activity & Goal Strategy
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
             {/* Activity selector */}
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-accent-purple" /> Activity Multiplier
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1">
+                Activity Multiplier
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {ACTIVITY_LEVELS.map((act) => (
                   <div
                     key={act.level}
                     onClick={() => setActivity(act.level)}
-                    className={`p-4 rounded-2xl border text-left cursor-pointer transition-all duration-300 ${
+                    className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-300 flex items-center justify-between ${
                       activity === act.level 
                         ? 'bg-white/[0.05] border-accent-purple/40 shadow-md' 
                         : 'bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03]'
                     }`}
                   >
-                    <p className="text-xs font-bold text-white leading-none">{act.label}</p>
-                    <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">{act.desc}</p>
+                    <div>
+                      <p className="text-xs font-bold text-white leading-none">{act.label}</p>
+                      <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">{act.desc}</p>
+                    </div>
+                    {activity === act.level && <div className="w-2 h-2 rounded-full bg-accent-purple shadow-[0_0_8px_#6C63FF]" />}
                   </div>
                 ))}
               </div>
@@ -332,197 +347,201 @@ export default function Goals({ user }) {
               <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1 flex items-center gap-1.5">
                 <Target className="w-3.5 h-3.5 text-accent-teal" /> Target Strategy
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {GOAL_TYPES.map((goal) => (
                   <div
                     key={goal.type}
                     onClick={() => setGoalType(goal.type)}
-                    className={`p-4 rounded-2xl border text-left cursor-pointer transition-all duration-300 ${
+                    className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-300 flex items-center justify-between ${
                       goalType === goal.type 
                         ? 'bg-white/[0.05] border-accent-teal/40 shadow-md' 
                         : 'bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03]'
                     }`}
                   >
-                    <p className="text-xs font-bold text-white leading-none">{goal.label}</p>
-                    <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">{goal.desc}</p>
+                    <div>
+                      <p className="text-xs font-bold text-white leading-none">{goal.label}</p>
+                      <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">{goal.desc}</p>
+                    </div>
+                    {goalType === goal.type && <div className="w-2 h-2 rounded-full bg-accent-teal shadow-[0_0_8px_#22D3EE]" />}
                   </div>
                 ))}
               </div>
             </div>
-          </GlassCard>
+          </div>
+        </GlassCard>
 
-          {/* Recommended Targets Result Panel */}
-          <GlassCard className="space-y-4 border-accent-teal/10" delay={0.2} hover={false}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <Calculator className="w-4 h-4 text-accent-teal" /> Mifflin-St Jeor Recommendations
-              </p>
-              <button
-                type="button"
-                onClick={applyRecommendedTargets}
-                className="text-xs font-bold text-accent-teal hover:text-accent-teal/80 border border-accent-teal/20 bg-accent-teal/5 px-4 py-1.5 rounded-xl transition-all"
-              >
-                Apply Recommendations
-              </button>
+        {/* Section 3: Recommended vs Custom Targets */}
+        <GlassCard className="space-y-6 border-accent-teal/10" delay={0.3}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
+            <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-accent-teal" /> Nutrition Targets
+            </p>
+            <button
+              type="button"
+              onClick={applyRecommendedTargets}
+              className="text-xs font-bold text-accent-teal hover:text-accent-teal/80 border border-accent-teal/20 bg-accent-teal/5 px-4 py-2 rounded-xl transition-all"
+            >
+              Apply Mifflin-St Jeor Recommendations
+            </button>
+          </div>
+
+          <div className="pt-2">
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-3 ml-1 font-bold">Recommended Metrics</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center py-3 bg-white/[0.01] border border-white/[0.04] rounded-xl mb-6">
+              <div className="col-span-2 md:col-span-1">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Calories</p>
+                <p className="text-lg font-extrabold text-white mt-1">{recommended.calories}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Protein</p>
+                <p className="text-base font-extrabold text-accent-pink mt-1">{recommended.protein}g</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Carbs</p>
+                <p className="text-base font-extrabold text-accent-yellow mt-1">{recommended.carbs}g</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fat</p>
+                <p className="text-base font-extrabold text-accent-green mt-1">{recommended.fat}g</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fiber</p>
+                <p className="text-base font-extrabold text-accent-blue mt-1">{recommended.fiber}g</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-5 gap-2 text-center py-2 bg-white/[0.01] border border-white/[0.04] rounded-xl">
-              <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Calories</p>
-                <p className="text-sm font-extrabold text-white mt-1">{recommended.calories}</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase">kcal</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Protein</p>
-                <p className="text-sm font-extrabold text-accent-pink mt-1">{recommended.protein}g</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase">P</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Carbs</p>
-                <p className="text-sm font-extrabold text-accent-yellow mt-1">{recommended.carbs}g</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase">C</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Fat</p>
-                <p className="text-sm font-extrabold text-accent-green mt-1">{recommended.fat}g</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase">F</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Fiber</p>
-                <p className="text-sm font-extrabold text-accent-blue mt-1">{recommended.fiber}g</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase">Fb</p>
-              </div>
-            </div>
-          </GlassCard>
-
-          {/* Custom Targets Card Inputs */}
-          <GlassCard className="space-y-4" delay={0.3}>
-            <p className="text-xs font-bold uppercase text-slate-400 tracking-wider">Custom Targets (Manual Overrides)</p>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div>
-                <label className="block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Calories</label>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-3 ml-1 font-bold mt-8">Custom Targets (Your Active Goal)</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="col-span-2 md:col-span-1">
+                <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Calories</label>
                 <input
                   type="number"
                   value={customCal}
                   onChange={(e) => setCustomCal(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-lg py-2.5 text-xs text-white outline-none"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-xl py-3 text-sm font-bold text-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Protein (g)</label>
+                <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Protein (g)</label>
                 <input
                   type="number"
                   value={customPro}
                   onChange={(e) => setCustomPro(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-lg py-2.5 text-xs text-white outline-none"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-xl py-3 text-sm font-bold text-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Carbs (g)</label>
+                <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Carbs (g)</label>
                 <input
                   type="number"
                   value={customCarb}
                   onChange={(e) => setCustomCarb(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-lg py-2.5 text-xs text-white outline-none"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-xl py-3 text-sm font-bold text-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Fat (g)</label>
+                <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Fat (g)</label>
                 <input
                   type="number"
                   value={customFat}
                   onChange={(e) => setCustomFat(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-lg py-2.5 text-xs text-white outline-none"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-xl py-3 text-sm font-bold text-white outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Fiber (g)</label>
+                <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Fiber (g)</label>
                 <input
                   type="number"
                   value={customFib}
                   onChange={(e) => setCustomFib(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-lg py-2.5 text-xs text-white outline-none"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple text-center rounded-xl py-3 text-sm font-bold text-white outline-none transition-all"
                 />
               </div>
             </div>
-
+          </div>
+          
+          <div className="pt-4">
             <button
               type="submit"
-              className="w-full py-3 mt-4 bg-gradient-to-r from-accent-purple to-accent-teal hover:from-accent-purple/90 hover:to-accent-teal/90 text-white font-bold rounded-xl text-sm transition-all shadow-md shadow-accent-purple/20 flex items-center justify-center gap-2 hover:scale-[1.01]"
+              className="w-full py-4 mt-2 bg-gradient-to-r from-accent-purple to-accent-teal hover:from-accent-purple/90 hover:to-accent-teal/90 text-white font-bold rounded-xl text-sm transition-all shadow-md shadow-accent-purple/20 flex items-center justify-center gap-2 hover:scale-[1.01]"
             >
-              <Save className="w-4 h-4" /> Save Profile & Goals
+              <Save className="w-5 h-5" /> Save Profile & Goals
             </button>
-          </GlassCard>
-        </form>
+          </div>
+        </GlassCard>
+      </form>
 
-        {/* Right Column: Weight Logs (Span 5) */}
-        <div className="lg:col-span-5 space-y-6">
+      {/* Section 4: Weight Logs */}
+      <GlassCard className="space-y-6" delay={0.4}>
+        <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2 border-b border-white/[0.06] pb-4">
+          <Scale className="w-4 h-4 text-accent-teal" /> Weight Tracking
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
           {/* Add log weight form */}
-          <GlassCard className="space-y-4" delay={0.4}>
-            <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
-              <Scale className="w-4 h-4 text-accent-teal" /> Register Weight Entry
-            </p>
-
-            <form onSubmit={handleLogWeight} className="flex gap-2">
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1">Register Today's Weight</label>
+            <div className="flex gap-3">
               <input
                 type="number"
                 step="0.1"
                 placeholder="e.g. 70.5"
-                required
                 value={weightValue}
                 onChange={(e) => setWeightValue(e.target.value)}
-                className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal transition-all rounded-xl py-3 px-4 text-sm text-white placeholder-slate-500 outline-none"
+                className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal transition-all rounded-xl py-3.5 px-4 text-sm font-bold text-white placeholder-slate-500 outline-none"
               />
               <button
-                type="submit"
-                className="py-3 px-5 bg-accent-teal text-obsidian-950 font-bold rounded-xl text-sm hover:bg-accent-teal/90 transition-colors shadow-lg shadow-accent-teal/20"
+                onClick={handleLogWeight}
+                disabled={!weightValue}
+                className="py-3.5 px-6 bg-accent-teal text-obsidian-950 font-extrabold rounded-xl text-sm hover:bg-accent-teal/90 transition-all shadow-lg shadow-accent-teal/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Log kg
+                Log Entry
               </button>
-            </form>
-          </GlassCard>
+            </div>
+          </div>
 
           {/* Weight log history list */}
-          <GlassCard className="space-y-4 flex-1" delay={0.5}>
-            <p className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
-              <ClipboardList className="w-4 h-4 text-accent-purple" /> Logged Weight History
-            </p>
-
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1 flex items-center gap-2">
+              <ClipboardList className="w-3 h-3 text-accent-purple" /> Recent Entries
+            </label>
+            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2">
               {weightHistory.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-xs">
+                <div className="py-8 text-center text-slate-500 text-xs bg-white/[0.01] rounded-xl border border-white/[0.02]">
                   No weight entries recorded yet.
                 </div>
               ) : (
                 weightHistory.map((log) => (
                   <div
                     key={log.id}
-                    className="flex items-center justify-between p-3.5 bg-white/[0.01] border border-white/[0.04] rounded-xl hover:bg-white/[0.02] transition-colors"
+                    className="flex items-center justify-between p-3.5 bg-white/[0.01] border border-white/[0.04] rounded-xl hover:bg-white/[0.03] transition-colors"
                   >
-                    <div>
-                      <p className="text-sm font-bold text-white">{log.weight} kg</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
-                        {new Date(log.date || log.id).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric"
-                        })}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-accent-teal/10 flex items-center justify-center text-accent-teal">
+                        <Scale className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white leading-none">{log.weight} kg</p>
+                        <p className="text-[10px] text-slate-500 mt-1 font-semibold uppercase tracking-wider">
+                          {new Date(log.date || log.id).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric"
+                          })}
+                        </p>
+                      </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600" />
                   </div>
                 ))
               )}
             </div>
-          </GlassCard>
+          </div>
         </div>
-
-      </div>
+      </GlassCard>
     </div>
   );
 }

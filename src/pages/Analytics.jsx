@@ -369,10 +369,10 @@ export default function Analytics({ user }) {
                 DAILY PANEL
                 ======================================================== */}
             {activeTab === 'daily' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 {/* Score and pie chart */}
                 <div className="space-y-6">
-                  <GlassCard className="flex flex-col items-center py-10" delay={0.1}>
+                  <GlassCard className="flex flex-col items-center py-6" delay={0.1}>
                     <p className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-6">Nutrition Quality Score</p>
                     <div className="relative w-40 h-40 flex items-center justify-center">
                       <svg className="w-full h-full transform -rotate-90">
@@ -435,7 +435,7 @@ export default function Analytics({ user }) {
                   {/* Recharts Pie card */}
                   <GlassCard className="flex flex-col items-center py-6" delay={0.3}>
                     <p className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-4">Macro Distribution</p>
-                    <div className="w-full h-[240px]">
+                    <div className="w-full h-[200px]">
                       {dailyPieData.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-slate-500 text-xs">
                           No logged meal entries for today yet
@@ -471,7 +471,7 @@ export default function Analytics({ user }) {
                     </p>
                     <div className="space-y-3">
                       {insights.map((insight, idx) => (
-                        <div key={idx} className="flex gap-4 p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04]">
+                        <div key={idx} className="flex gap-4 p-3 rounded-2xl bg-white/[0.01] border border-white/[0.04]">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             insight.type === 'success' ? 'bg-accent-green/10 text-accent-green border border-accent-green/20' :
                             insight.type === 'warning' ? 'bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/20' :

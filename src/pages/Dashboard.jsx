@@ -238,15 +238,15 @@ export default function Dashboard({ user }) {
         {/* Left Column: Calorie Ring Snapshot */}
         <GlassCard className="flex flex-col items-center justify-center py-10" delay={0.1}>
           <p className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-6">Today's Snapshot</p>
-          <div className="relative w-44 h-44 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90">
+          <div className="relative w-44 h-44">
+            <svg viewBox="0 0 144 144" className="w-full h-full transform -rotate-90">
               <circle
                 stroke="rgba(255,255,255,0.03)"
                 fill="transparent"
                 strokeWidth={stroke}
                 r={normalizedRadius}
-                cx={radius}
-                cy={radius}
+                cx="72"
+                cy="72"
               />
               <motion.circle
                 stroke="url(#calorieGradient)"
@@ -258,8 +258,8 @@ export default function Dashboard({ user }) {
                 transition={{ duration: 1.2, ease: "easeOut" }}
                 strokeLinecap="round"
                 r={normalizedRadius}
-                cx={radius}
-                cy={radius}
+                cx="72"
+                cy="72"
               />
               <defs>
                 <linearGradient id="calorieGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -268,7 +268,7 @@ export default function Dashboard({ user }) {
                 </linearGradient>
               </defs>
             </svg>
-            <div className="absolute flex flex-col items-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-3xl font-black text-slate-100 leading-none">{consumed.calories}</span>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">of {goals.targetCalories} kcal</span>
             </div>

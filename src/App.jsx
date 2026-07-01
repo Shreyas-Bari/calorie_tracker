@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
+import { motion } from 'framer-motion';
 
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
@@ -47,10 +48,35 @@ export default function App() {
           path="/*"
           element={
             user ? (
-              <div className="min-h-screen bg-canvas text-slate-100 flex relative">
-                {/* Ambient background orbs — per visual spec */}
-                <div className="fixed top-[-5%] left-[-5%] w-[600px] h-[600px] rounded-full bg-indigo-600/15 blur-[130px] mix-blend-screen animate-pulse-slow pointer-events-none z-0" />
-                <div className="fixed bottom-[-5%] right-[-5%] w-[500px] h-[500px] rounded-full bg-purple-600/10 blur-[120px] mix-blend-screen animate-pulse-slower pointer-events-none z-0" />
+              <div className="min-h-screen bg-canvas text-slate-100 flex relative overflow-hidden">
+                {/* Ambient floating orb — Top Left (indigo, brighter, drifting) */}
+                <motion.div
+                  className="fixed top-[-5%] left-[-5%] w-[600px] h-[600px] rounded-full bg-indigo-600/20 blur-[130px] mix-blend-screen pointer-events-none z-0"
+                  animate={{
+                    x: [0, 60, -40, 20, 0],
+                    y: [0, -70, 40, -30, 0],
+                    scale: [1, 1.08, 0.95, 1.03, 1],
+                  }}
+                  transition={{
+                    duration: 20,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
+                {/* Ambient floating orb — Bottom Right (purple, drifting offset) */}
+                <motion.div
+                  className="fixed bottom-[-5%] right-[-5%] w-[500px] h-[500px] rounded-full bg-purple-600/15 blur-[120px] mix-blend-screen pointer-events-none z-0"
+                  animate={{
+                    x: [0, -50, 30, -20, 0],
+                    y: [0, 50, -60, 25, 0],
+                    scale: [1.05, 0.92, 1.1, 0.97, 1.05],
+                  }}
+                  transition={{
+                    duration: 25,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
 
                 <Sidebar user={user} />
                 
