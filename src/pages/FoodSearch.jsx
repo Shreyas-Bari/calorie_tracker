@@ -334,55 +334,78 @@ export default function FoodSearch({ user }) {
 
             <AnimatePresence>
               {isDateDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setIsDateDropdownOpen(false)} />
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                  {/* Backdrop click close handler */}
+                  <div className="absolute inset-0" onClick={() => setIsDateDropdownOpen(false)} />
+                  
+                  {/* Modal Content - Styled precisely per prompt */}
                   <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 mt-2 w-56 bg-slate-950/95 border border-white/[0.08] backdrop-blur-2xl rounded-2xl p-2 shadow-2xl z-25 space-y-0.5"
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    className="relative bg-[#11131a]/90 backdrop-blur-xl border border-white/[0.07] p-6 rounded-2xl max-w-md w-full shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh]"
                   >
-                    {getDropdownOptions().map((opt) => (
-                      <button
-                        key={opt.dateStr}
-                        onClick={() => {
-                          setSelectedDate(opt.dateStr);
-                          setIsDateDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors flex items-center justify-between ${
-                          selectedDate === opt.dateStr
-                            ? 'bg-gradient-to-r from-accent-purple/20 to-accent-teal/10 text-white border border-accent-purple/30'
-                            : 'text-slate-400 hover:text-white hover:bg-white/5'
-                        }`}
+                    {/* Modal header */}
+                    <div className="flex items-center justify-between border-b border-white/[0.06] pb-4 mb-4 shrink-0">
+                      <h3 className="text-xl font-extrabold text-slate-100">
+                        Select Date
+                      </h3>
+                      <button 
+                        onClick={() => setIsDateDropdownOpen(false)}
+                        className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-colors"
                       >
-                        <span>{opt.label}</span>
-                        {selectedDate === opt.dateStr && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-accent-teal shadow-[0_0_8px_#22D3EE]" />
-                        )}
+                        <X className="w-5 h-5" />
                       </button>
-                    ))}
-                    
-                    <div className="relative border-t border-white/[0.06] pt-1.5 mt-1.5">
-                      <button
-                        className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-colors flex items-center justify-between"
-                      >
-                        <span>Custom Date...</span>
-                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                      </button>
-                      <input 
-                        type="date" 
-                        value={selectedDate}
-                        max={todayStr}
-                        onChange={(e) => {
-                          setSelectedDate(e.target.value);
-                          setIsDateDropdownOpen(false);
-                        }}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
+                    </div>
+
+                    <div className="overflow-y-auto pr-2 pb-2 space-y-2">
+                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1 mt-1">Available Dates</label>
+                      
+                      <div className="flex flex-col space-y-1.5 mb-4">
+                        {getDropdownOptions().map((opt) => (
+                          <button
+                            key={opt.dateStr}
+                            onClick={() => {
+                              setSelectedDate(opt.dateStr);
+                              setIsDateDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-5 py-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-between ${
+                              selectedDate === opt.dateStr
+                                ? 'bg-white/10 text-white border border-white/20'
+                                : 'bg-transparent text-slate-300 hover:bg-white/5 border border-transparent'
+                            }`}
+                          >
+                            <span>{opt.label}</span>
+                            {selectedDate === opt.dateStr && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-accent-teal shadow-[0_0_8px_#22D3EE]" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1">Custom Selection</label>
+                      <div className="relative">
+                        <button
+                          className="w-full text-left px-5 py-4 rounded-xl text-sm font-semibold bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-200 flex items-center justify-between"
+                        >
+                          <span>Pick a Custom Date...</span>
+                          <Calendar className="w-4 h-4 text-slate-500" />
+                        </button>
+                        <input 
+                          type="date" 
+                          value={selectedDate}
+                          max={todayStr}
+                          onChange={(e) => {
+                            setSelectedDate(e.target.value);
+                            setIsDateDropdownOpen(false);
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                      </div>
                     </div>
                   </motion.div>
-                </>
+                </div>
               )}
             </AnimatePresence>
           </div>

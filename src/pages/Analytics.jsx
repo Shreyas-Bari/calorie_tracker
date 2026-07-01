@@ -435,7 +435,7 @@ export default function Analytics({ user }) {
                   {/* Recharts Pie card */}
                   <GlassCard className="flex flex-col items-center py-6" delay={0.3}>
                     <p className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-4">Macro Distribution</p>
-                    <div className="w-full h-[200px]">
+                    <div className="w-full h-[250px]">
                       {dailyPieData.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-slate-500 text-xs">
                           No logged meal entries for today yet
