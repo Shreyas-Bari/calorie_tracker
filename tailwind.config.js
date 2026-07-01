@@ -7,6 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        canvas: "#08090c",
         obsidian: {
           50: "#f4f4f6",
           100: "#e9e9ed",
@@ -34,7 +35,14 @@ export default {
       },
       boxShadow: {
         glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-      }
+        'glass-strong': '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+      },
+      animation: {
+        'pulse-slow': 'pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-slower': 'pulse 10s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'float-1': 'float1 18s ease-in-out infinite',
+        'float-2': 'float2 24s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

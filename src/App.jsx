@@ -25,7 +25,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center relative overflow-hidden">
         <div className="absolute w-[300px] h-[300px] rounded-full bg-accent-purple/10 blur-[100px] -top-20 animate-pulse" />
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent-purple to-accent-teal flex items-center justify-center shadow-lg shadow-accent-purple/20 animate-pulse mb-4">
           <svg className="w-8 h-8 text-white animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -47,11 +47,10 @@ export default function App() {
           path="/*"
           element={
             user ? (
-              <div className="min-h-screen bg-obsidian-900 text-slate-100 flex relative">
-                {/* Background ambient orbs */}
-                <div className="bg-orb bg-accent-purple/10 w-[500px] h-[500px] top-[-10%] right-[-10%] animate-float-1" />
-                <div className="bg-orb bg-accent-teal/10 w-[400px] h-[400px] bottom-[-10%] left-[-10%] animate-float-2" />
-                <div className="bg-orb bg-accent-pink/5 w-[300px] h-[300px] top-[40%] left-[30%] animate-pulse" />
+              <div className="min-h-screen bg-canvas text-slate-100 flex relative">
+                {/* Ambient background orbs — per visual spec */}
+                <div className="fixed top-[-5%] left-[-5%] w-[600px] h-[600px] rounded-full bg-indigo-600/15 blur-[130px] mix-blend-screen animate-pulse-slow pointer-events-none z-0" />
+                <div className="fixed bottom-[-5%] right-[-5%] w-[500px] h-[500px] rounded-full bg-purple-600/10 blur-[120px] mix-blend-screen animate-pulse-slower pointer-events-none z-0" />
 
                 <Sidebar user={user} />
                 

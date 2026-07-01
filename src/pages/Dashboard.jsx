@@ -15,7 +15,11 @@ import {
   Minus,
   Utensils,
   TrendingDown,
-  TrendingUp
+  TrendingUp,
+  Beef,
+  Wheat,
+  Droplets,
+  Leaf
 } from 'lucide-react';
 
 export default function Dashboard({ user }) {
@@ -162,6 +166,50 @@ export default function Dashboard({ user }) {
     snacks: Utensils
   };
 
+  // Macronutrient matrix data for the 4 individual panels
+  const macroMatrix = [
+    {
+      label: "Protein",
+      value: consumed.protein,
+      target: goals.targetProtein,
+      unit: "g",
+      color: "accent-pink",
+      gradient: "from-pink-500/20 to-pink-500/0",
+      borderColor: "border-t-pink-500/40",
+      icon: Beef
+    },
+    {
+      label: "Carbs",
+      value: consumed.carbs,
+      target: goals.targetCarbs,
+      unit: "g",
+      color: "accent-yellow",
+      gradient: "from-yellow-500/20 to-yellow-500/0",
+      borderColor: "border-t-yellow-500/40",
+      icon: Wheat
+    },
+    {
+      label: "Fat",
+      value: consumed.fat,
+      target: goals.targetFat,
+      unit: "g",
+      color: "accent-green",
+      gradient: "from-emerald-500/20 to-emerald-500/0",
+      borderColor: "border-t-green-500/40",
+      icon: Droplets
+    },
+    {
+      label: "Fiber",
+      value: consumed.fiber,
+      target: goals.targetFiber,
+      unit: "g",
+      color: "accent-blue",
+      gradient: "from-blue-500/20 to-blue-500/0",
+      borderColor: "border-t-blue-500/40",
+      icon: Leaf
+    }
+  ];
+
   return (
     <div className="space-y-8">
       {/* Top Header Row */}
@@ -184,7 +232,7 @@ export default function Dashboard({ user }) {
         </div>
       </div>
 
-      {/* Main Grid */}
+      {/* Main Grid: Calorie Ring + Macro Matrix + Water/Weight */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Left Column: Calorie Ring Snapshot */}
@@ -221,94 +269,72 @@ export default function Dashboard({ user }) {
               </defs>
             </svg>
             <div className="absolute flex flex-col items-center">
-              <span className="text-3xl font-black text-white leading-none">{consumed.calories}</span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">of {goals.targetCalories} kcal</span>
+              <span className="text-3xl font-black text-slate-100 leading-none">{consumed.calories}</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">of {goals.targetCalories} kcal</span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 w-full gap-4 mt-8 pt-6 border-t border-white/[0.06] text-center">
             <div>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Remaining</p>
-              <p className="text-xl font-extrabold text-white mt-1">{getRemainingCalories()} kcal</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Remaining</p>
+              <p className="text-xl font-extrabold text-slate-100 mt-1">{getRemainingCalories()} kcal</p>
             </div>
             <div>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Logged Meals</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Logged Meals</p>
               <p className="text-xl font-extrabold text-accent-teal mt-1">{meals.length}</p>
             </div>
           </div>
         </GlassCard>
 
-        {/* Middle Column: Macronutrient Bars */}
-        <GlassCard className="flex flex-col" delay={0.2}>
-          <p className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-6">Macronutrients</p>
-          <div className="flex-1 flex flex-col justify-between gap-6">
-            
-            {/* Protein bar */}
-            <div>
-              <div className="flex justify-between text-sm font-semibold mb-2">
-                <span className="text-slate-300">Protein</span>
-                <span className="text-white">{consumed.protein}g / <span className="text-slate-500">{goals.targetProtein}g</span></span>
-              </div>
-              <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((consumed.protein / goals.targetProtein) * 100, 100)}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-full bg-accent-pink rounded-full shadow-lg shadow-accent-pink/20"
-                />
-              </div>
-            </div>
-
-            {/* Carbs bar */}
-            <div>
-              <div className="flex justify-between text-sm font-semibold mb-2">
-                <span className="text-slate-300">Carbs</span>
-                <span className="text-white">{consumed.carbs}g / <span className="text-slate-500">{goals.targetCarbs}g</span></span>
-              </div>
-              <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((consumed.carbs / goals.targetCarbs) * 100, 100)}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-full bg-accent-yellow rounded-full shadow-lg shadow-accent-yellow/20"
-                />
-              </div>
-            </div>
-
-            {/* Fat bar */}
-            <div>
-              <div className="flex justify-between text-sm font-semibold mb-2">
-                <span className="text-slate-300">Fat</span>
-                <span className="text-white">{consumed.fat}g / <span className="text-slate-500">{goals.targetFat}g</span></span>
-              </div>
-              <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((consumed.fat / goals.targetFat) * 100, 100)}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-full bg-accent-green rounded-full shadow-lg shadow-accent-green/20"
-                />
-              </div>
-            </div>
-
-            {/* Fiber bar */}
-            <div>
-              <div className="flex justify-between text-sm font-semibold mb-2">
-                <span className="text-slate-300">Fiber</span>
-                <span className="text-white">{consumed.fiber}g / <span className="text-slate-500">{goals.targetFiber}g</span></span>
-              </div>
-              <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((consumed.fiber / goals.targetFiber) * 100, 100)}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-full bg-accent-blue rounded-full shadow-lg shadow-accent-blue/20"
-                />
-              </div>
-            </div>
-
-          </div>
-        </GlassCard>
+        {/* Middle Column: Macronutrient Matrix Grid — 4 individual glass panels */}
+        <div className="grid grid-cols-2 gap-4">
+          {macroMatrix.map((macro, i) => {
+            const pct = Math.min((macro.value / macro.target) * 100, 100);
+            const MacroIcon = macro.icon;
+            return (
+              <motion.div
+                key={macro.label}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.15 + i * 0.08, ease: [0.33, 1, 0.68, 1] }}
+                className={`relative overflow-hidden bg-slate-950/40 backdrop-blur-xl border border-white/[0.06] border-t-2 ${macro.borderColor} rounded-2xl p-5 shadow-glass-strong hover:scale-[1.01] hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all duration-300`}
+              >
+                {/* Gradient accent glow at top */}
+                <div className={`absolute top-0 left-0 right-0 h-16 bg-gradient-to-b ${macro.gradient} pointer-events-none`} />
+                
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <MacroIcon className={`w-5 h-5 text-${macro.color}`} />
+                    <span className={`text-[9px] font-bold uppercase tracking-widest text-${macro.color}`}>
+                      {Math.round(pct)}%
+                    </span>
+                  </div>
+                  
+                  <p className="text-2xl font-black text-slate-100 leading-none">
+                    {macro.value}
+                    <span className="text-xs text-slate-400 font-bold ml-0.5">{macro.unit}</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5">
+                    {macro.label}
+                  </p>
+                  
+                  {/* Micro progress bar */}
+                  <div className="mt-3 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 1, ease: "easeOut", delay: 0.3 + i * 0.1 }}
+                      className={`h-full bg-${macro.color} rounded-full shadow-lg shadow-${macro.color}/20`}
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-500 font-semibold mt-1.5">
+                    of {macro.target}{macro.unit} target
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
 
         {/* Right Column: Weight & Water Trackers */}
         <div className="flex flex-col gap-6">
@@ -317,7 +343,7 @@ export default function Dashboard({ user }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold uppercase text-slate-400 tracking-wider">Water Intake</p>
-                <p className="text-xl font-extrabold text-white mt-1">{(waterGlasses * 0.25).toFixed(2)} L</p>
+                <p className="text-xl font-extrabold text-slate-100 mt-1">{(waterGlasses * 0.25).toFixed(2)} L</p>
               </div>
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                 waterGlasses >= 6 ? 'bg-accent-green/10 text-accent-green border border-accent-green/20' : 
@@ -369,9 +395,9 @@ export default function Dashboard({ user }) {
               </div>
               <div className="flex-1">
                 <p className="text-xs font-bold uppercase text-slate-400 tracking-wider">Current Weight</p>
-                <p className="text-2xl font-black text-white mt-1">
+                <p className="text-2xl font-black text-slate-100 mt-1">
                   {weightLogs.length > 0 ? weightLogs[0].weight : '--'}{' '}
-                  <span className="text-xs text-slate-500 font-bold uppercase">kg</span>
+                  <span className="text-xs text-slate-400 font-bold uppercase">kg</span>
                 </p>
               </div>
               {weightLogs.length >= 2 && (() => {
@@ -444,7 +470,7 @@ export default function Dashboard({ user }) {
                       <p className="text-[11px] text-slate-500 mt-0.5 uppercase tracking-wider font-semibold">{meal.mealType} &middot; {meal.servingGrams}g</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-white">{meal.calories}</p>
+                      <p className="text-sm font-black text-slate-100">{meal.calories}</p>
                       <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">kcal</p>
                     </div>
                   </motion.div>

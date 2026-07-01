@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,7 +13,8 @@ import {
   ChevronRight, 
   Utensils, 
   X,
-  AlertCircle
+  Check,
+  Flame
 } from 'lucide-react';
 
 const FOOD_DB = [
@@ -104,7 +105,7 @@ export default function FoodSearch({ user }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   
-  // Calculator states
+  // Modal/calculator states
   const [selectedFood, setSelectedFood] = useState(null);
   const [servingGrams, setServingGrams] = useState(100);
   const [mealSlot, setMealSlot] = useState('Breakfast');
@@ -220,12 +221,19 @@ export default function FoodSearch({ user }) {
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
 
+  // Open food card for the modal
+  const handleSelectFood = (food) => {
+    setSelectedFood(food);
+    setServingGrams(100);
+    setMealSlot('Breakfast');
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Page Header and Date Selector */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Food Search & selector</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Food Search & Selector</h1>
           <p className="text-slate-400 text-sm mt-1">Search the database and log meals to your journal</p>
         </div>
 
@@ -238,7 +246,7 @@ export default function FoodSearch({ user }) {
             <ChevronLeft className="w-4 h-4" />
           </button>
           
-          <div className="flex items-center gap-2 px-3 font-semibold text-sm text-white min-w-[120px] justify-center">
+          <div className="flex items-center gap-2 px-3 font-semibold text-sm text-white min-w-[120px] justify-center relative">
             <Calendar className="w-4 h-4 text-accent-teal" />
             <span>{getDisplayDateLabel()}</span>
             <input 
@@ -258,307 +266,357 @@ export default function FoodSearch({ user }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* Left Column: Search & Calculator (Span 7) */}
-        <div className="lg:col-span-7 space-y-6">
-          <GlassCard className="space-y-6" delay={0.1}>
-            <p className="text-xs font-bold uppercase text-slate-400 tracking-wider">Search Indian & Global Foods</p>
-            
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Search food item (e.g. Roti, Poha, Chicken, Mango)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-300 rounded-xl py-3.5 pl-12 pr-4 text-sm text-white placeholder-slate-500 outline-none"
-              />
-              {searchQuery && (
+      {/* Search Bar & Category Filters */}
+      <GlassCard className="space-y-4" delay={0.05} hover={false}>
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+          {/* Search Input */}
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search food item (e.g. Roti, Poha, Chicken, Mango)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-accent-purple focus:ring-1 focus:ring-accent-purple transition-all duration-300 rounded-xl py-3.5 pl-12 pr-10 text-sm text-white placeholder-slate-500 outline-none"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-4 text-slate-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Results count */}
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest whitespace-nowrap shrink-0">
+            {filteredFoods.length} items
+          </span>
+        </div>
+
+        {/* Category pills */}
+        <div className="flex flex-wrap gap-2">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
+                activeCategory === cat 
+                  ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-md shadow-accent-purple/20' 
+                  : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </GlassCard>
+
+      {/* 3-Column Food Card Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[calc(100vh-380px)] overflow-y-auto pr-1">
+        {filteredFoods.length === 0 ? (
+          <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
+              <Search className="w-5 h-5" />
+            </div>
+            <p className="text-sm font-semibold text-slate-400">No food items match your search</p>
+            <p className="text-xs text-slate-500 mt-1">Try a different keyword or category filter</p>
+          </div>
+        ) : (
+          filteredFoods.map((food, index) => (
+            <motion.div
+              key={food.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3), ease: [0.33, 1, 0.68, 1] }}
+              onClick={() => handleSelectFood(food)}
+              className={`relative overflow-hidden bg-slate-950/40 backdrop-blur-xl border rounded-2xl p-5 shadow-glass cursor-pointer hover:scale-[1.01] hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all duration-300 ${
+                selectedFood?.id === food.id 
+                  ? 'border-accent-teal/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]' 
+                  : 'border-white/[0.06]'
+              }`}
+            >
+              {/* Inner subtle gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+
+              <div className="relative z-10">
+                {/* Food title & category */}
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-slate-100 leading-snug">{food.name}</h3>
+                    <span className="inline-block mt-1.5 text-[9px] font-bold text-accent-teal/80 bg-accent-teal/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                      {food.category}
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-black text-slate-100 leading-none">{food.calories}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">kcal</p>
+                  </div>
+                </div>
+
+                {/* Serving label */}
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-3">per 100g serving</p>
+
+                {/* Macro tag pills */}
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 text-center py-1.5 rounded-lg bg-pink-500/10 border border-pink-500/15 text-[10px] font-bold text-accent-pink">
+                    P {food.protein}g
+                  </span>
+                  <span className="flex-1 text-center py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/15 text-[10px] font-bold text-accent-yellow">
+                    C {food.carbs}g
+                  </span>
+                  <span className="flex-1 text-center py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-[10px] font-bold text-accent-green">
+                    F {food.fat}g
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          ))
+        )}
+      </div>
+
+      {/* Modal Overlay — appears when a food card is clicked */}
+      <AnimatePresence>
+        {selectedFood && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setSelectedFood(null); }}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="relative w-full max-w-lg bg-slate-950/90 backdrop-blur-2xl border border-white/[0.08] rounded-3xl p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] z-10"
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-4 mb-5">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-extrabold text-slate-100">{selectedFood.name}</h3>
+                  <span className="inline-block mt-1 text-[9px] font-bold text-accent-teal/80 bg-accent-teal/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                    {selectedFood.category}
+                  </span>
+                </div>
                 <button 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-4 text-slate-500 hover:text-white"
+                  onClick={() => setSelectedFood(null)}
+                  className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
-              )}
-            </div>
+              </div>
 
-            {/* Category pills */}
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
-                    activeCategory === cat 
-                      ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-md shadow-accent-purple/20' 
-                      : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Search list results */}
-            <div className="max-h-[300px] overflow-y-auto divide-y divide-white/[0.05] pr-2">
-              {filteredFoods.length === 0 ? (
-                <div className="py-8 text-center text-slate-500 text-xs">
-                  No food items match your search details.
-                </div>
-              ) : (
-                filteredFoods.map(food => (
-                  <div
-                    key={food.id}
-                    onClick={() => {
-                      setSelectedFood(food);
-                      setServingGrams(100);
-                    }}
-                    className={`flex items-center justify-between py-3.5 px-3 rounded-xl cursor-pointer transition-all ${
-                      selectedFood?.id === food.id
-                        ? 'bg-white/[0.05] border-l-4 border-accent-teal'
-                        : 'hover:bg-white/[0.02]'
-                    }`}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-white">{food.name}</p>
-                      <span className="inline-block mt-1 text-[10px] font-bold text-accent-teal/80 bg-accent-teal/10 px-2 py-0.5 rounded-full uppercase">
-                        {food.category}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-extrabold text-white">{food.calories} kcal</p>
-                      <p className="text-[10px] text-slate-500 font-semibold uppercase mt-0.5">per 100g</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </GlassCard>
-
-          {/* Calculator Card Drawer (AnimatePresence) */}
-          <AnimatePresence>
-            {selectedFood && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <GlassCard className="space-y-6 border-accent-teal/20" delay={0}>
-                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-                    <div>
-                      <h3 className="text-base font-extrabold text-white">{selectedFood.name}</h3>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{selectedFood.category}</span>
-                    </div>
-                    <button 
-                      onClick={() => setSelectedFood(null)}
-                      className="p-1.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+              {/* Serving size & Meal slot — side by side */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                {/* Serving size */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Serving Size (Grams)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setServingGrams(Math.max(10, servingGrams - 50))}
+                      className="p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
                     >
-                      <X className="w-4 h-4" />
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      value={servingGrams}
+                      min="10"
+                      max="2000"
+                      onChange={(e) => setServingGrams(Math.max(1, parseInt(e.target.value) || 0))}
+                      className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal text-center transition-all duration-300 rounded-xl py-2.5 text-sm font-bold text-white outline-none"
+                    />
+                    <button
+                      onClick={() => setServingGrams(servingGrams + 50)}
+                      className="p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Serving size selectors */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Serving Size (Grams)</label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setServingGrams(Math.max(10, servingGrams - 50))}
-                          className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <input
-                          type="number"
-                          value={servingGrams}
-                          min="10"
-                          max="2000"
-                          onChange={(e) => setServingGrams(Math.max(1, parseInt(e.target.value) || 0))}
-                          className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-accent-teal focus:ring-1 focus:ring-accent-teal text-center transition-all duration-300 rounded-xl py-3 text-sm font-bold text-white outline-none"
-                        />
-                        <button
-                          onClick={() => setServingGrams(servingGrams + 50)}
-                          className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Quick Chips */}
-                      <div className="flex gap-1.5 mt-3">
-                        {[50, 100, 150, 200, 250].map((grams) => (
-                          <button
-                            key={grams}
-                            onClick={() => setServingGrams(grams)}
-                            className={`flex-1 py-1 rounded-lg text-[10px] font-bold uppercase transition-colors ${
-                              servingGrams === grams 
-                                ? 'bg-accent-teal text-obsidian-950 shadow-sm' 
-                                : 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400'
-                            }`}
-                          >
-                            {grams}g
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Meal Slot Type</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((slot) => (
-                          <button
-                            key={slot}
-                            onClick={() => setMealSlot(slot)}
-                            className={`py-3 rounded-xl text-xs font-semibold uppercase transition-all duration-300 ${
-                              mealSlot === slot 
-                                ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-md' 
-                                : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Calculated metrics display */}
-                  <div className="grid grid-cols-5 gap-2.5 bg-white/[0.01] border border-white/[0.04] p-4 rounded-xl text-center">
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Calories</p>
-                      <p className="text-base font-extrabold text-white mt-1">{calculated.calories}</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">kcal</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Protein</p>
-                      <p className="text-base font-extrabold text-accent-pink mt-1">{calculated.protein}g</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">P</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Carbs</p>
-                      <p className="text-base font-extrabold text-accent-yellow mt-1">{calculated.carbs}g</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">C</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fat</p>
-                      <p className="text-base font-extrabold text-accent-green mt-1">{calculated.fat}g</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">F</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fiber</p>
-                      <p className="text-base font-extrabold text-accent-blue mt-1">{calculated.fiber}g</p>
-                      <p className="text-[8px] text-slate-500 font-bold uppercase">Fb</p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleLogFood}
-                    className="w-full py-3 bg-gradient-to-r from-accent-purple to-accent-teal hover:from-accent-purple/90 hover:to-accent-teal/90 text-white font-bold rounded-xl text-sm transition-all duration-300 shadow-md shadow-accent-purple/20 flex items-center justify-center gap-2 hover:scale-[1.01]"
-                  >
-                    <Plus className="w-4 h-4" /> Log This Food
-                  </button>
-                </GlassCard>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Right Column: Today's Logs (Span 5) */}
-        <div className="lg:col-span-5 space-y-6">
-          <GlassCard className="flex flex-col min-h-[460px]" delay={0.2}>
-            <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
-              <p className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
-                <Utensils className="w-4 h-4 text-accent-purple" />
-                Journal Entries
-              </p>
-              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{loggedItems.length} logged</span>
-            </div>
-
-            {/* List with scroll */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2 max-h-[360px]">
-              {loading ? (
-                <div className="py-20 flex flex-col items-center justify-center text-slate-500 text-xs">
-                  Loading food items...
-                </div>
-              ) : loggedItems.length === 0 ? (
-                <div className="py-20 flex flex-col items-center text-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
-                    <Utensils className="w-5 h-5" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-400">Empty logs for this date</p>
-                  <p className="text-xs text-slate-500 mt-1 max-w-[200px]">Use the food search selectors on the left side to register entries.</p>
-                </div>
-              ) : (
-                <AnimatePresence mode="popLayout">
-                  {loggedItems.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.04] p-3.5 rounded-xl hover:bg-white/[0.04] transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{item.foodName}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider font-semibold">
-                          {item.mealType} &middot; {item.servingGrams}g
-                        </p>
-                      </div>
-                      
-                      <div className="text-right pr-2">
-                        <p className="text-sm font-extrabold text-white">{item.calories}</p>
-                        <p className="text-[9px] text-slate-500 font-semibold uppercase mt-0.5">kcal</p>
-                      </div>
-
+                  {/* Quick Chips */}
+                  <div className="flex gap-1.5 mt-2.5">
+                    {[50, 100, 150, 200, 250].map((grams) => (
                       <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                        key={grams}
+                        onClick={() => setServingGrams(grams)}
+                        className={`flex-1 py-1 rounded-lg text-[10px] font-bold uppercase transition-colors ${
+                          servingGrams === grams 
+                            ? 'bg-accent-teal text-canvas shadow-sm' 
+                            : 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {grams}g
                       </button>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              )}
-            </div>
-
-            {/* Daily Summary totals at the bottom */}
-            {loggedItems.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-white/[0.06] space-y-4">
-                <div className="flex items-center justify-between text-white font-extrabold">
-                  <span className="text-sm">Total Calories Logged</span>
-                  <span className="text-lg bg-gradient-to-r from-accent-purple to-accent-teal bg-clip-text text-transparent">{dailyTotals.calories} kcal</span>
+                    ))}
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-4 gap-2 text-center text-[10px] text-slate-400">
-                  <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                    <p className="font-bold text-accent-pink">{dailyTotals.protein}g</p>
-                    <p className="uppercase mt-0.5 text-slate-500 font-bold">Protein</p>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                    <p className="font-bold text-accent-yellow">{dailyTotals.carbs}g</p>
-                    <p className="uppercase mt-0.5 text-slate-500 font-bold">Carbs</p>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                    <p className="font-bold text-accent-green">{dailyTotals.fat}g</p>
-                    <p className="uppercase mt-0.5 text-slate-500 font-bold">Fat</p>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
-                    <p className="font-bold text-accent-blue">{dailyTotals.fiber}g</p>
-                    <p className="uppercase mt-0.5 text-slate-500 font-bold">Fiber</p>
+
+                {/* Meal slot */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Meal Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((slot) => (
+                      <button
+                        key={slot}
+                        onClick={() => setMealSlot(slot)}
+                        className={`py-2.5 rounded-xl text-xs font-semibold uppercase transition-all duration-300 ${
+                          mealSlot === slot 
+                            ? 'bg-gradient-to-r from-accent-purple to-accent-teal text-white shadow-md' 
+                            : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
-            )}
-          </GlassCard>
+
+              {/* Calculated metrics display */}
+              <div className="grid grid-cols-5 gap-2 bg-white/[0.02] border border-white/[0.04] p-4 rounded-xl text-center mb-5">
+                <div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Calories</p>
+                  <p className="text-base font-extrabold text-slate-100 mt-1">{calculated.calories}</p>
+                  <p className="text-[8px] text-slate-500 font-bold uppercase">kcal</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Protein</p>
+                  <p className="text-base font-extrabold text-accent-pink mt-1">{calculated.protein}g</p>
+                  <p className="text-[8px] text-slate-500 font-bold uppercase">P</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Carbs</p>
+                  <p className="text-base font-extrabold text-accent-yellow mt-1">{calculated.carbs}g</p>
+                  <p className="text-[8px] text-slate-500 font-bold uppercase">C</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fat</p>
+                  <p className="text-base font-extrabold text-accent-green mt-1">{calculated.fat}g</p>
+                  <p className="text-[8px] text-slate-500 font-bold uppercase">F</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fiber</p>
+                  <p className="text-base font-extrabold text-accent-blue mt-1">{calculated.fiber}g</p>
+                  <p className="text-[8px] text-slate-500 font-bold uppercase">Fb</p>
+                </div>
+              </div>
+
+              {/* Log button */}
+              <button
+                onClick={handleLogFood}
+                className="w-full py-3.5 bg-gradient-to-r from-accent-purple to-accent-teal hover:from-accent-purple/90 hover:to-accent-teal/90 text-white font-bold rounded-xl text-sm transition-all duration-300 shadow-md shadow-accent-purple/20 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <Check className="w-4 h-4" /> Log This Food
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Daily Log Summary — collapsed at bottom */}
+      <GlassCard className="flex flex-col" delay={0.15} hover={false}>
+        <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
+          <p className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
+            <Utensils className="w-4 h-4 text-accent-purple" />
+            Journal Entries
+          </p>
+          <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{loggedItems.length} logged</span>
         </div>
 
-      </div>
+        {/* Logged items list */}
+        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-2">
+          {loading ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 text-xs">
+              Loading food items...
+            </div>
+          ) : loggedItems.length === 0 ? (
+            <div className="py-12 flex flex-col items-center text-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
+                <Utensils className="w-5 h-5" />
+              </div>
+              <p className="text-sm font-semibold text-slate-400">Empty logs for this date</p>
+              <p className="text-xs text-slate-500 mt-1 max-w-[200px]">Use the food cards above to search and log entries.</p>
+            </div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {loggedItems.map((item) => (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.04] p-3.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{item.foodName}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider font-semibold">
+                      {item.mealType} &middot; {item.servingGrams}g
+                    </p>
+                  </div>
+
+                  {/* Macro pills on logged items */}
+                  <div className="hidden md:flex items-center gap-1.5">
+                    <span className="text-[9px] font-bold text-accent-pink bg-pink-500/10 px-1.5 py-0.5 rounded">P{item.protein}g</span>
+                    <span className="text-[9px] font-bold text-accent-yellow bg-yellow-500/10 px-1.5 py-0.5 rounded">C{item.carbs}g</span>
+                    <span className="text-[9px] font-bold text-accent-green bg-emerald-500/10 px-1.5 py-0.5 rounded">F{item.fat}g</span>
+                  </div>
+                  
+                  <div className="text-right pr-2">
+                    <p className="text-sm font-extrabold text-slate-100">{item.calories}</p>
+                    <p className="text-[9px] text-slate-500 font-semibold uppercase mt-0.5">kcal</p>
+                  </div>
+
+                  <button
+                    onClick={() => handleDeleteItem(item.id)}
+                    className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
+        </div>
+
+        {/* Daily Summary totals at the bottom */}
+        {loggedItems.length > 0 && (
+          <div className="mt-5 pt-5 border-t border-white/[0.06] space-y-4">
+            <div className="flex items-center justify-between text-white font-extrabold">
+              <span className="text-sm">Total Calories Logged</span>
+              <span className="text-lg bg-gradient-to-r from-accent-purple to-accent-teal bg-clip-text text-transparent">{dailyTotals.calories} kcal</span>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-2 text-center text-[10px] text-slate-400">
+              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                <p className="font-bold text-accent-pink">{dailyTotals.protein}g</p>
+                <p className="uppercase mt-0.5 text-slate-500 font-bold">Protein</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                <p className="font-bold text-accent-yellow">{dailyTotals.carbs}g</p>
+                <p className="uppercase mt-0.5 text-slate-500 font-bold">Carbs</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                <p className="font-bold text-accent-green">{dailyTotals.fat}g</p>
+                <p className="uppercase mt-0.5 text-slate-500 font-bold">Fat</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 py-2 rounded-xl">
+                <p className="font-bold text-accent-blue">{dailyTotals.fiber}g</p>
+                <p className="uppercase mt-0.5 text-slate-500 font-bold">Fiber</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </GlassCard>
     </div>
   );
 }
