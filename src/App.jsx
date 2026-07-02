@@ -9,8 +9,10 @@ import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import FoodSearch from './pages/FoodSearch';
+import MealTracker from './pages/MealTracker';
 import Goals from './pages/Goals';
 import Analytics from './pages/Analytics';
+import Feedback from './pages/Feedback';
 
 const getTodayDateString = () => new Date().toLocaleDateString('en-CA');
 
@@ -90,8 +92,10 @@ export default function App() {
                       path="/search"
                       element={<FoodSearch user={user} activeDate={activeLogDate} setActiveDate={setActiveLogDate} />}
                     />
+                    <Route path="/tracker" element={<MealTracker user={user} />} />
                     <Route path="/goals" element={<Goals user={user} />} />
                     <Route path="/analytics" element={<Analytics user={user} />} />
+                    <Route path="/feedback" element={<Feedback user={user} />} />
                     <Route path="*" element={<Navigate to="/" />} />
                   </Routes>
                 </main>

@@ -52,6 +52,61 @@ export default function Dashboard({ user }) {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
   };
 
+  /**
+   * Compute the current logging streak by walking backwards from yesterday.
+   * Today's log does NOT count towards the streak (the user may still be logging).
+   * Each past day that has at least one item in daily_logs/{date}/items increments the streak.
+   * The streak breaks on the first day with zero logged items.
+   * Result is saved to Firestore at users/{uid}.streak for other components to read.
+   */
+  const computeAndPersistStreak = async () => {
+    try {
+      let currentStreak = 0;
+      const today = new Date();
+      today.setHours(12, 0, 0, 0);
+
+      // Check today first — if the user has logged today, it counts as the start
+      const todayStr = getTodayDateString();
+      const todayRef = collection(db, "users", user.uid, "daily_logs", todayStr, "items");
+      const todaySnap = await getDocs(todayRef);
+      const hasLoggedToday = todaySnap.size > 0;
+
+      // Walk backwards from yesterday (or today if already logged)
+      const maxLookback = 60; // Don't check more than 60 days back
+      const startOffset = hasLoggedToday ? 0 : 1;
+
+      for (let i = startOffset; i < maxLookback; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+        const ref = collection(db, "users", user.uid, "daily_logs", ds, "items");
+        const snap = await getDocs(ref);
+
+        if (snap.size > 0) {
+          currentStreak++;
+        } else {
+          // If this is the very first check (today) and nothing logged, streak is 0
+          break;
+        }
+      }
+
+      setStreak(currentStreak);
+
+      // Persist streak data to Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        streak: {
+          current: currentStreak,
+          lastActiveDate: hasLoggedToday ? todayStr : getTodayDateString(),
+          updatedAt: serverTimestamp()
+        }
+      }, { merge: true });
+
+    } catch (e) {
+      console.error("Streak computation error:", e);
+    }
+  };
+
   useEffect(() => {
     const h = new Date().getHours();
     if (h < 12) setGreeting("Good morning");
@@ -82,6 +137,7 @@ export default function Dashboard({ user }) {
               targetFiber: data.goals.targetFiber || 30
             });
           }
+          // Load cached streak as an immediate display while we compute the real one
           if (data.streak) {
             setStreak(data.streak.current || 0);
           }
@@ -131,6 +187,9 @@ export default function Dashboard({ user }) {
     };
 
     loadDashboardData();
+
+    // Compute streak asynchronously (doesn't block dashboard rendering)
+    computeAndPersistStreak();
   }, [user.uid]);
 
   const handleWaterToggle = async (glassesCount) => {

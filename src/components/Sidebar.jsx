@@ -6,8 +6,10 @@ import { signOut } from 'firebase/auth';
 import {
   LayoutDashboard,
   Search,
+  Utensils,
   Target,
   BarChart3,
+  MessageSquare,
   LogOut
 } from 'lucide-react';
 
@@ -23,17 +25,52 @@ export default function Sidebar({ user }) {
     }
   };
 
-  const navItems = [
+  const mainNavItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { name: "Food Search", path: "/search", icon: Search },
+    { name: "Meal Tracker", path: "/tracker", icon: Utensils },
+  ];
+
+  const insightsNavItems = [
     { name: "Analytics", path: "/analytics", icon: BarChart3 },
     { name: "Goals & Profile", path: "/goals", icon: Target },
+  ];
+
+  const supportNavItems = [
+    { name: "Feedback", path: "/feedback", icon: MessageSquare },
   ];
 
   const getInitials = (name) => {
     if (!name) return 'U';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
+
+  const renderNavItem = (item) => (
+    <NavLink
+      key={item.path}
+      to={item.path}
+      end={item.path === '/'}
+      className={({ isActive }) =>
+        `relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-300 ${
+          isActive ? 'text-white' : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <motion.div
+              layoutId="activeNavBg"
+              className="absolute inset-0 bg-gradient-to-r from-accent-purple/15 to-accent-teal/5 border border-accent-purple/20 rounded-xl"
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            />
+          )}
+          <item.icon className={`w-5 h-5 relative z-10 ${isActive ? 'text-accent-teal' : 'opacity-70'}`} />
+          <span className="relative z-10">{item.name}</span>
+        </>
+      )}
+    </NavLink>
+  );
 
   return (
     <aside className="w-[260px] h-screen fixed top-0 left-0 bg-obsidian-950/80 border-r border-white/[0.06] backdrop-blur-2xl flex flex-col p-6 z-40">
@@ -49,33 +86,18 @@ export default function Sidebar({ user }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-2">
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 mb-2">Main Menu</span>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-300 ${
-                isActive ? 'text-white' : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <motion.div
-                    layoutId="activeNavBg"
-                    className="absolute inset-0 bg-gradient-to-r from-accent-purple/15 to-accent-teal/5 border border-accent-purple/20 rounded-xl"
-                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                  />
-                )}
-                <item.icon className={`w-5 h-5 relative z-10 ${isActive ? 'text-accent-teal' : 'opacity-70'}`} />
-                <span className="relative z-10">{item.name}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+      <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
+        {/* Main Section */}
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 mb-2">Main</span>
+        {mainNavItems.map(renderNavItem)}
+
+        {/* Insights Section */}
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 mt-5 mb-2">Insights</span>
+        {insightsNavItems.map(renderNavItem)}
+
+        {/* Support Section */}
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 mt-5 mb-2">Support</span>
+        {supportNavItems.map(renderNavItem)}
       </nav>
 
       {/* User Footer */}
