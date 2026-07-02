@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { db } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -102,10 +103,25 @@ const FOOD_DB = [
 
 const CATEGORIES = ["All", "Breakfast", "Lunch/Dinner", "Snacks", "Beverages", "Dairy", "Grains", "Fruits & Vegetables"];
 
-export default function FoodSearch({ user }) {
-  // Initialize to today in local time
-  const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+const formatDateKey = (date) => date.toLocaleDateString('en-CA');
+
+const createLocalDate = (dateKey) => {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const getDateWithOffset = (offset) => {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + offset);
+  return date;
+};
+
+export default function FoodSearch({ user, activeDate, setActiveDate }) {
+  const todayStr = formatDateKey(new Date());
+  const [localActiveDate, setLocalActiveDate] = useState(todayStr);
+  const selectedDate = activeDate ?? localActiveDate;
+  const updateActiveDate = setActiveDate ?? setLocalActiveDate;
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   
@@ -114,7 +130,7 @@ export default function FoodSearch({ user }) {
   const [servingGrams, setServingGrams] = useState(100);
   const [mealSlot, setMealSlot] = useState('Breakfast');
   const [editingItem, setEditingItem] = useState(null);
-  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   
   // Log items for selected date
   const [loggedItems, setLoggedItems] = useState([]);
@@ -144,11 +160,13 @@ export default function FoodSearch({ user }) {
 
   // Handle Date Navigation
   const changeDateByOffset = (offset) => {
-    const d = new Date(selectedDate);
+    const d = createLocalDate(selectedDate);
     d.setDate(d.getDate() + offset);
-    const newDateStr = d.toLocaleDateString('en-CA');
-    if (newDateStr > todayStr) return; // Block future dates
-    setSelectedDate(newDateStr);
+    const newDateStr = formatDateKey(d);
+    if (newDateStr > todayStr) return;
+    updateActiveDate(newDateStr);
+    setSelectedFood(null);
+    setEditingItem(null);
   };
 
   // Filter food database based on query & category
@@ -202,6 +220,7 @@ export default function FoodSearch({ user }) {
 
   // Edit logged item
   const handleEditItem = (item) => {
+    if (!isToday) return;
     const baseFood = FOOD_DB.find(f => f.name === item.foodName) || {
       id: "custom",
       name: item.foodName,
@@ -257,7 +276,16 @@ export default function FoodSearch({ user }) {
   // Formatted date label
   const getDisplayDateLabel = () => {
     if (isToday) return "Today";
-    return new Date(selectedDate).toLocaleDateString("en-IN", {
+    return createLocalDate(selectedDate).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+  };
+
+  const getFullDateLabel = (dateStr) => {
+    return createLocalDate(dateStr).toLocaleDateString("en-IN", {
+      weekday: "short",
       day: "numeric",
       month: "short",
       year: "numeric"
@@ -276,36 +304,60 @@ export default function FoodSearch({ user }) {
 
   // Open food card for the modal
   const handleSelectFood = (food) => {
+    if (!isToday) return;
     setSelectedFood(food);
     setServingGrams(100);
     setMealSlot('Breakfast');
   };
 
-  const getDropdownOptions = () => {
+  const handleDateSelection = (option) => {
+    if (option.disabled || option.dateStr > todayStr) return;
+    updateActiveDate(option.dateStr);
+    setSelectedFood(null);
+    setEditingItem(null);
+    setIsDateModalOpen(false);
+  };
+
+  const getDateOptions = () => {
     const options = [];
-    for (let i = 0; i < 8; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('en-CA');
+    for (let offset = 1; offset >= -7; offset--) {
+      const d = getDateWithOffset(offset);
+      const dateStr = formatDateKey(d);
+      const disabled = dateStr > todayStr;
       
       let label = "";
-      if (i === 0) label = "Today";
-      else if (i === 1) label = "Yesterday";
+      if (offset === 1) label = "Tomorrow";
+      else if (offset === 0) label = "Today";
+      else if (offset === -1) label = "Yesterday";
       else {
         label = d.toLocaleDateString("en-IN", {
           day: "numeric",
           month: "short"
         });
       }
-      options.push({ dateStr, label });
+
+      options.push({
+        dateStr,
+        label,
+        disabled,
+        isTodayOption: dateStr === todayStr,
+        isSelected: selectedDate === dateStr,
+        description: disabled
+          ? "Future logging is unavailable"
+          : dateStr === todayStr
+            ? "Live tracking and edits enabled"
+            : "Historical log opens read-only"
+      });
     }
     return options;
   };
 
+  const canNavigateForward = selectedDate < todayStr;
+
   return (
     <div className="space-y-6">
       {/* Page Header and Date Selector */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
             Food Search & Journal
@@ -314,113 +366,153 @@ export default function FoodSearch({ user }) {
           <p className="text-slate-400 text-sm mt-1">Search the database and manage your daily logs</p>
         </div>
 
-        {/* Date Selector Navigation */}
-        <div className="flex items-center gap-2 bg-white/5 border border-white/10 p-1.5 rounded-2xl backdrop-blur-md relative">
-          <button 
-            onClick={() => changeDateByOffset(-1)} 
-            className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-400 hover:text-white"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {!isToday && (
+            <div className="flex items-center gap-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3.5 py-2 text-xs font-extrabold uppercase text-amber-300 shadow-[0_0_20px_rgba(251,191,36,0.08)]">
+              <Lock className="h-4 w-4" />
+              Read-only history
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 bg-white/5 border border-white/10 p-1.5 rounded-2xl backdrop-blur-md">
             <button
-              onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-              className="flex items-center gap-2 px-3 py-2 font-semibold text-sm text-white hover:bg-white/5 rounded-xl transition-all"
+              type="button"
+              onClick={() => changeDateByOffset(-1)}
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-400 hover:text-white"
+              aria-label="Go to previous day"
             >
-              <Calendar className={`w-4 h-4 ${isToday ? 'text-accent-teal' : 'text-amber-500'}`} />
-              <span className={!isToday ? 'text-amber-500' : ''}>{getDisplayDateLabel()}</span>
+              <ChevronLeft className="w-4 h-4" />
             </button>
 
-            <AnimatePresence>
-              {isDateDropdownOpen && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                  {/* Backdrop click close handler */}
-                  <div className="absolute inset-0" onClick={() => setIsDateDropdownOpen(false)} />
-                  
-                  {/* Modal Content - Styled precisely per prompt */}
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className="relative bg-[#11131a]/90 backdrop-blur-xl border border-white/[0.07] p-6 rounded-2xl max-w-md w-full shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh]"
-                  >
-                    {/* Modal header */}
-                    <div className="flex items-center justify-between border-b border-white/[0.06] pb-4 mb-4 shrink-0">
-                      <h3 className="text-xl font-extrabold text-slate-100">
-                        Select Date
-                      </h3>
-                      <button 
-                        onClick={() => setIsDateDropdownOpen(false)}
-                        className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
+            <button
+              type="button"
+              onClick={() => setIsDateModalOpen(true)}
+              className={`flex min-w-[170px] items-center justify-center gap-2 px-4 py-2 font-semibold text-sm rounded-xl transition-all ${
+                isToday
+                  ? 'text-white hover:bg-white/5'
+                  : 'bg-amber-500/10 text-amber-300 border border-amber-400/20 hover:bg-amber-500/15'
+              }`}
+              aria-haspopup="dialog"
+              aria-expanded={isDateModalOpen}
+            >
+              <Calendar className={`w-4 h-4 ${isToday ? 'text-accent-teal' : 'text-amber-400'}`} />
+              <span>{getDisplayDateLabel()}</span>
+            </button>
 
-                    <div className="overflow-y-auto pr-2 pb-2 space-y-2">
-                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1 mt-1">Available Dates</label>
-                      
-                      <div className="flex flex-col space-y-1.5 mb-4">
-                        {getDropdownOptions().map((opt) => (
-                          <button
-                            key={opt.dateStr}
-                            onClick={() => {
-                              setSelectedDate(opt.dateStr);
-                              setIsDateDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-5 py-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-between ${
-                              selectedDate === opt.dateStr
-                                ? 'bg-white/10 text-white border border-white/20'
-                                : 'bg-transparent text-slate-300 hover:bg-white/5 border border-transparent'
-                            }`}
-                          >
-                            <span>{opt.label}</span>
-                            {selectedDate === opt.dateStr && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-accent-teal shadow-[0_0_8px_#22D3EE]" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      
-                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 ml-1">Custom Selection</label>
-                      <div className="relative">
-                        <button
-                          className="w-full text-left px-5 py-4 rounded-xl text-sm font-semibold bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-200 flex items-center justify-between"
-                        >
-                          <span>Pick a Custom Date...</span>
-                          <Calendar className="w-4 h-4 text-slate-500" />
-                        </button>
-                        <input 
-                          type="date" 
-                          value={selectedDate}
-                          max={todayStr}
-                          onChange={(e) => {
-                            setSelectedDate(e.target.value);
-                            setIsDateDropdownOpen(false);
-                          }}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
-              )}
-            </AnimatePresence>
+            <button
+              type="button"
+              onClick={() => changeDateByOffset(1)}
+              disabled={!canNavigateForward}
+              className={`p-2 rounded-xl transition-colors ${
+                canNavigateForward
+                  ? 'text-slate-400 hover:text-white hover:bg-white/10'
+                  : 'text-white/10 cursor-not-allowed'
+              }`}
+              aria-label="Go to next day"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-
-          <button 
-            onClick={() => changeDateByOffset(1)} 
-            disabled={isToday}
-            className={`p-2 rounded-xl transition-colors ${
-              isToday ? 'text-white/10 cursor-not-allowed' : 'text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
       </div>
+
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isDateModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setIsDateModalOpen(false);
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 14 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 14 }}
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                className="bg-[#11131a]/90 backdrop-blur-xl border border-white/[0.07] p-6 rounded-2xl max-w-md w-full shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] max-h-[88vh] overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Select active food log date"
+              >
+                <div className="flex items-start justify-between gap-4 border-b border-white/[0.06] pb-5">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-accent-teal">Active log date</p>
+                    <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-white">Select Date</h2>
+                    <p className="mt-1 text-sm text-slate-400">Past logs open in read-only mode.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDateModalOpen(false)}
+                    className="shrink-0 rounded-xl border border-white/10 bg-white/5 p-2.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+                    aria-label="Close date selector"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="mt-5 max-h-[58vh] space-y-2 overflow-y-auto pr-1">
+                  {getDateOptions().map((opt) => (
+                    <button
+                      key={opt.dateStr}
+                      type="button"
+                      disabled={opt.disabled}
+                      onClick={() => handleDateSelection(opt)}
+                      className={`group w-full rounded-xl border px-4 py-3.5 text-left transition-all duration-200 ${
+                        opt.disabled
+                          ? 'cursor-not-allowed border-white/[0.04] bg-white/[0.02] text-slate-500 opacity-60'
+                          : opt.isSelected
+                            ? 'border-accent-teal/40 bg-accent-teal/10 text-white shadow-[0_0_22px_rgba(34,211,238,0.08)]'
+                            : 'border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/5 hover:border-white/[0.12] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-base font-extrabold leading-tight">{opt.label}</p>
+                            {opt.isSelected && (
+                              <span className="rounded-full bg-accent-teal/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-teal">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs font-medium text-slate-400">{getFullDateLabel(opt.dateStr)}</p>
+                          <p className={`mt-2 text-[11px] font-bold uppercase tracking-wider ${
+                            opt.disabled ? 'text-slate-500' : opt.isTodayOption ? 'text-accent-teal' : 'text-amber-300'
+                          }`}>
+                            {opt.description}
+                          </p>
+                        </div>
+
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors ${
+                          opt.disabled
+                            ? 'border-white/[0.05] bg-white/[0.03] text-slate-600'
+                            : opt.isSelected
+                              ? 'border-accent-teal/30 bg-accent-teal/15 text-accent-teal'
+                              : 'border-white/[0.06] bg-white/[0.04] text-slate-500 group-hover:text-white'
+                        }`}>
+                          {opt.disabled ? (
+                            <Lock className="h-4 w-4" />
+                          ) : opt.isSelected ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Calendar className="h-4 w-4" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Past Date Alert Bar */}
       <AnimatePresence>
@@ -431,11 +523,11 @@ export default function FoodSearch({ user }) {
             exit={{ opacity: 0, height: 0, y: -10 }}
             className="overflow-hidden"
           >
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-              <AlertTriangle className="w-5 h-5 shrink-0" />
+            <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/15 p-4 text-amber-200 shadow-[0_0_30px_rgba(251,191,36,0.08)]">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-300" />
               <div className="text-sm">
-                <span className="font-bold">Viewing archived log for {getDisplayDateLabel()} — Read-only mode.</span> 
-                <span className="ml-1 opacity-80">You cannot modify past journal entries.</span>
+                <span className="font-bold">Historical log for {getDisplayDateLabel()} is locked in read-only mode.</span>
+                <span className="ml-1 text-amber-100/80">Return to Today to add, edit, or remove food entries.</span>
               </div>
             </div>
           </motion.div>
@@ -512,7 +604,12 @@ export default function FoodSearch({ user }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3), ease: [0.33, 1, 0.68, 1] }}
                   onClick={() => handleSelectFood(food)}
-                  className={`relative overflow-hidden bg-slate-950/40 backdrop-blur-xl border rounded-2xl p-5 shadow-glass cursor-pointer hover:scale-[1.01] hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all duration-300 ${
+                  aria-disabled={!isToday}
+                  className={`relative overflow-hidden bg-slate-950/40 backdrop-blur-xl border rounded-2xl p-5 shadow-glass transition-all duration-300 ${
+                    isToday
+                      ? 'cursor-pointer hover:scale-[1.01] hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]'
+                      : 'cursor-not-allowed opacity-60'
+                  } ${
                     selectedFood?.id === food.id 
                       ? 'border-accent-teal/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]' 
                       : 'border-white/[0.06]'
@@ -564,7 +661,7 @@ export default function FoodSearch({ user }) {
             <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
               <p className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
                 <Utensils className={`w-4 h-4 ${isToday ? 'text-accent-teal' : 'text-amber-500'}`} />
-                Current Log Tracker
+                {isToday ? 'Current Log Tracker' : 'Read-only Log Tracker'}
               </p>
               <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{loggedItems.length} logged</span>
             </div>
@@ -581,7 +678,9 @@ export default function FoodSearch({ user }) {
                     <Utensils className="w-5 h-5" />
                   </div>
                   <p className="text-sm font-semibold text-slate-400">Empty log tracker</p>
-                  <p className="text-xs text-slate-500 mt-1 max-w-[200px]">Use the food cards to search and log entries.</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[220px]">
+                    {isToday ? 'Use the food cards to search and log entries.' : 'No entries were logged for this historical date.'}
+                  </p>
                 </div>
               ) : (
                 <AnimatePresence mode="popLayout">

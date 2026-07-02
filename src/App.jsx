@@ -12,9 +12,12 @@ import FoodSearch from './pages/FoodSearch';
 import Goals from './pages/Goals';
 import Analytics from './pages/Analytics';
 
+const getTodayDateString = () => new Date().toLocaleDateString('en-CA');
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeLogDate, setActiveLogDate] = useState(getTodayDateString);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currUser) => {
@@ -83,7 +86,10 @@ export default function App() {
                 <main className="flex-1 ml-[260px] p-8 min-h-screen relative z-10">
                   <Routes>
                     <Route path="/" element={<Dashboard user={user} />} />
-                    <Route path="/search" element={<FoodSearch user={user} />} />
+                    <Route
+                      path="/search"
+                      element={<FoodSearch user={user} activeDate={activeLogDate} setActiveDate={setActiveLogDate} />}
+                    />
                     <Route path="/goals" element={<Goals user={user} />} />
                     <Route path="/analytics" element={<Analytics user={user} />} />
                     <Route path="*" element={<Navigate to="/" />} />
